@@ -68,7 +68,7 @@ export interface BusinessAlert {
 /**
  * 健康状态
  */
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+export type BizHealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 /**
  * 业务指标
@@ -85,9 +85,9 @@ export interface BusinessMetrics {
  * 业务健康状态
  */
 export interface BusinessHealth {
-  status: HealthStatus;
-  taskHealth: HealthStatus;
-  processingHealth: HealthStatus;
+  status: BizHealthStatus;
+  taskHealth: BizHealthStatus;
+  processingHealth: BizHealthStatus;
   details: {
     successRate: number;
     throughput: number;
@@ -374,8 +374,8 @@ export class BusinessMonitor extends EventEmitter {
     const taskMetrics = this.calculateTaskMetrics();
     const speedMetrics = this.calculateProcessingSpeedMetrics();
 
-    let taskHealth: HealthStatus = 'healthy';
-    let processingHealth: HealthStatus = 'healthy';
+    let taskHealth: BizHealthStatus = 'healthy';
+    let processingHealth: BizHealthStatus = 'healthy';
 
     // 评估任务健康
     if (taskMetrics.totalTasks >= 10) {
@@ -393,7 +393,7 @@ export class BusinessMonitor extends EventEmitter {
       processingHealth = 'degraded';
     }
 
-    let overallStatus: HealthStatus = 'healthy';
+    let overallStatus: BizHealthStatus = 'healthy';
     if (taskHealth === 'unhealthy' || processingHealth === 'unhealthy') {
       overallStatus = 'unhealthy';
     } else if (taskHealth === 'degraded' || processingHealth === 'degraded') {

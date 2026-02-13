@@ -85,16 +85,16 @@ export interface CacheMetrics {
 /**
  * 健康状态
  */
-export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+export type AppHealthStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 /**
  * 应用健康状态
  */
 export interface ApplicationHealth {
-  overall: HealthStatus;
-  api: HealthStatus;
-  queue: HealthStatus;
-  cache: HealthStatus;
+  overall: AppHealthStatus;
+  api: AppHealthStatus;
+  queue: AppHealthStatus;
+  cache: AppHealthStatus;
 }
 
 /**
@@ -512,7 +512,7 @@ export class ApplicationMonitor extends EventEmitter {
   /**
    * 发出健康状态变化事件
    */
-  private emitHealthChange(component: string, status: HealthStatus): void {
+  private emitHealthChange(component: string, status: AppHealthStatus): void {
     this.emit('healthChange', { component, status });
   }
 
