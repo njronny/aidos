@@ -5,10 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AIDOS - AI DevOps System</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="login.css">
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
-  <div class="app-container">
+  <!-- Login Page -->
+  <div class="login-page hidden" id="loginPage">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="login-logo">🤖</div>
+          <h1 class="login-title">AIDOS</h1>
+          <p class="login-subtitle">AI DevOps System - 登录</p>
+        </div>
+        <form class="login-form" id="loginForm">
+          <div class="form-group">
+            <label class="form-label" for="username">用户名</label>
+            <input type="text" class="form-input" id="username" placeholder="请输入用户名" autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">密码</label>
+            <input type="password" class="form-input" id="password" placeholder="请输入密码" autocomplete="current-password">
+          </div>
+          <div class="login-error hidden" id="loginError"></div>
+          <button type="submit" class="login-btn" id="loginBtn">登录</button>
+        </form>
+        <div class="login-footer">
+          默认账户: admin / aidos123
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Container -->
+  <div class="app-container hidden">
     <!-- Header -->
     <header class="header">
       <div class="header-left">
@@ -184,6 +214,7 @@
   <script src="log.js"></script>
   <script src="websocket.js"></script>
   <script src="projects.js"></script>
+  <script src="login.js"></script>
   <script>
     // Initialize Mermaid
     mermaid.initialize({

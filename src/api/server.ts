@@ -5,6 +5,7 @@ import { projectRoutes } from './routes/projects';
 import { requirementRoutes } from './routes/requirements';
 import { taskRoutes } from './routes/tasks';
 import { agentRoutes } from './routes/agents';
+import { publicRoute, authMiddleware } from './auth';
 
 const fastify = Fastify({
   logger: {
@@ -43,11 +44,17 @@ async function startServer() {
       }));
     });
 
-    // Register routes
-    await fastify.register(projectRoutes, { prefix: '/api' });
-    await fastify.register(requirementRoutes, { prefix: '/api' });
-    await fastify.register(taskRoutes, { prefix: '/api' });
-    await fastify.register(agentRoutes, { prefix: '/api' });
+    // Register public auth routes (no auth required)
+    await fastify.register(publicRoute, { prefix: '/api' });
+
+    // Register routes (with auth middleware for protected routes)
+    await fastify.register(async (instance) => {
+      instance.addHook('preHandler', authMiddleware);
+      await instance.register(projectRoutes, { prefix: '/projects' });
+      await instance.register(requirementRoutes, { prefix: '/requirements' });
+      await instance.register(taskRoutes, { prefix: '/tasks' });
+      await instance.register(agentRoutes, { prefix: '/agents' });
+    }, { prefix: '/api' });
 
     // Health check
     fastify.get('/health', async (request, reply) => {
@@ -65,6 +72,7 @@ async function startServer() {
         message: 'Welcome to Aidos API',
         version: '1.0.0',
         endpoints: {
+          auth: '/api/auth/login',
           projects: '/api/projects',
           requirements: '/api/requirements',
           tasks: '/api/tasks',
@@ -100,6 +108,9 @@ async function startServer() {
     console.log(`🚀 Aidos API Server running at http://${host}:${port}`);
     console.log(`📡 WebSocket available at ws://${host}:${port}/ws`);
     console.log(`📋 API Endpoints:`);
+    console.log(`   - POST   /api/auth/login    - 用户登录`);
+    console.log(`   - GET    /api/auth/verify   - 验证Token`);
+    console.log(`   - POST   /api/auth/logout   - 用户登出`);
     console.log(`   - GET    /api/projects      - 项目列表`);
     console.log(`   - GET    /api/projects/:id  - 项目详情`);
     console.log(`   - POST   /api/projects       - 创建项目`);

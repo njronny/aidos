@@ -251,7 +251,7 @@ export class AutoFix {
     const fixes: Fix[] = [];
 
     try {
-      await execAsync('npx eslint --fix .', { stdio: 'pipe' });
+      await execAsync('npx eslint --fix .');
       fixes.push({
         type: 'lint_error',
         description: '已运行 eslint --fix 自动修复',

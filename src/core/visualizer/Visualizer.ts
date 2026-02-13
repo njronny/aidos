@@ -253,7 +253,7 @@ ${mermaidCode
       taskName: string;
       startTime: Date;
       endTime?: Date;
-      status: string;
+      status: 'pending' | 'running' | 'completed' | 'failed';
       agent?: string;
     }>
   ): TimelineData {

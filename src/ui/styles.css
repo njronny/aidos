@@ -18,6 +18,12 @@
   --accent-info: #06b6d4;
   
   --border-color: #334155;
+}
+
+/* Utility classes */
+.hidden {
+  display: none !important;
+}
   --border-light: #475569;
   
   /* Status Colors */
