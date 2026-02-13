@@ -34,7 +34,7 @@ export const 代码审查: React.FC<代码审查Props> = ({
   return (
     <div className={`${className} 代码审查`}>
       <h2>代码审查</h2>
-      <p>对开发俄罗斯方块游戏的代码进行审查</p>
+      <p>对用户登录功能的代码进行审查</p>
     </div>
   );
 };
