@@ -1,145 +1,121 @@
-var API_URL = "";
-/**
- * Flowchart Module
- * Displays task workflow using Mermaid.js
- */
-
-const Flowchart = (function() {
-  let currentTasks = [];
-  let isRendering = false;
-
-  /**
-   * Generate Mermaid flowchart from tasks
-   */
+// Flowchart Module - With Project Selection
+(function() {
+  var API_URL = '';
+  var currentTasks = [];
+  var currentProjectId = null;
+  var projects = [];
+  var requirements = [];
+  
   function generateMermaid(tasks) {
     if (!tasks || tasks.length === 0) {
-      return 'flowchart TD\n    empty[No tasks yet]';
+      return 'flowchart TD\n    empty[No tasks in this project]';
     }
 
-    const lines = ['flowchart TD'];
-    
-    // Define node styles
-    const styles = [];
+    var lines = ['flowchart TD'];
     
     // Add nodes
-    for (const task of tasks) {
-      const escapedLabel = task.name.replace(/"/g, "'");
-      const status = task.status || 'pending';
-      
-      // Node with ID and label
-      lines.push(`    ${task.id}["${escapedLabel}"]`);
-      
-      // Add style class
-      switch(status) {
-        case 'completed':
-          lines.push(`    class ${task.id} completed`);
-          break;
-        case 'running':
-          lines.push(`    class ${task.id} running`);
-          break;
-        case 'failed':
-          lines.push(`    class ${task.id} failed`);
-          break;
-        case 'blocked':
-          lines.push(`    class ${task.id} blocked`);
-          break;
-        default:
-          lines.push(`    class ${task.id} pending`);
-      }
+    tasks.forEach(function(task) {
+      var label = (task.title || task.name || 'Untitled').substring(0, 20);
+      var status = task.status || 'pending';
+      var nodeId = task.id.substring(0,8);
+      lines.push('    ' + nodeId + '["' + label + ' (' + status + ')"]');
+    });
+    
+    // Add simple sequence edges
+    for (var i = 0; i < tasks.length - 1; i++) {
+      lines.push('    ' + tasks[i].id.substring(0,8) + ' --> ' + tasks[i+1].id.substring(0,8));
     }
-
-    // Add dependencies as edges
-    for (const task of tasks) {
-      if (task.dependencies && task.dependencies.length > 0) {
-        for (const dep of task.dependencies) {
-          // Check if dependency exists
-          if (tasks.find(t => t.id === dep)) {
-            lines.push(`    ${dep} --> ${task.id}`);
-          }
-        }
-      }
-    }
-
-    // Add style definitions
-    lines.push('');
-    lines.push('    classDef pending fill:#64748b,stroke:#64748b,color:#fff');
-    lines.push('    classDef running fill:#3b82f6,stroke:#3b82f6,color:#fff');
-    lines.push('    classDef completed fill:#10b981,stroke:#10b981,color:#fff');
-    lines.push('    classDef failed fill:#ef4444,stroke:#ef4444,color:#fff');
-    lines.push('    classDef blocked fill:#f59e0b,stroke:#f59e0b,color:#fff');
-
+    
     return lines.join('\n');
   }
-
-  /**
-   * Render flowchart
-   */
-  async function render(tasks) {
-    currentTasks = tasks;
-    
-    const container = document.getElementById('flowchart');
+  
+  function render(tasks) {
+    currentTasks = tasks || [];
+    var container = document.getElementById('flowchart');
     if (!container) return;
-
-    if (isRendering) return;
-    isRendering = true;
-
-    try {
-      const mermaidCode = generateMermaid(tasks);
-      container.innerHTML = '';
-
-      // Create a temporary element for Mermaid to render
-      const tempDiv = document.createElement('div');
-      tempDiv.className = 'mermaid';
-      tempDiv.textContent = mermaidCode;
-      container.appendChild(tempDiv);
-
-      // Render with Mermaid
-      if (window.mermaid) {
-        await window.mermaid.run({ nodes: [tempDiv] });
+    
+    if (currentTasks.length === 0) {
+      container.innerHTML = '<div class="empty-state">No tasks in this project</div>';
+      return;
+    }
+    
+    var mermaidCode = generateMermaid(currentTasks);
+    container.innerHTML = mermaidCode;
+    
+    if (typeof mermaid !== 'undefined') {
+      mermaid.run({ nodes: [container] }).catch(function(e) {
+        container.innerHTML = '<pre>' + mermaidCode + '</pre>';
+      });
+    } else {
+      container.innerHTML = '<pre>' + mermaidCode + '</pre>';
+    }
+  }
+  
+  function loadTasksForProject(projectId) {
+    currentProjectId = projectId;
+    
+    // 获取该项目的需求
+    fetch(API_URL + '/api/requirements?projectId=' + projectId)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.success && data.data) {
+          requirements = data.data;
+          
+          // 获取所有任务，然后过滤
+          fetch(API_URL + '/api/tasks')
+            .then(function(res) { return res.json(); })
+            .then(function(taskData) {
+              if (taskData.success && taskData.data) {
+                // 过滤出属于该项目需求的任务
+                var reqIds = requirements.map(function(r) { return r.id; });
+                var filteredTasks = taskData.data.filter(function(t) {
+                  return reqIds.indexOf(t.requirementId) !== -1;
+                });
+                render(filteredTasks);
+              }
+            });
+        }
+      });
+  }
+  
+  function renderProjectSelector() {
+    var container = document.getElementById('flowchartProjectSelector');
+    if (!container) return;
+    
+    fetch(API_URL + '/api/projects')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.success && data.data) {
+          projects = data.data;
+          
+          var html = '<select id="projectSelect" onchange="Flowchart.changeProject(this.value)">';
+          html += '<option value="">-- Select Project --</option>';
+          projects.forEach(function(p) {
+            html += '<option value="' + p.id + '">' + (p.name || 'Untitled') + '</option>';
+          });
+          html += '</select>';
+          container.innerHTML = html;
+          
+          // 默认选择第一个项目
+          if (projects.length > 0) {
+            loadTasksForProject(projects[0].id);
+            document.getElementById('projectSelect').value = projects[0].id;
+          }
+        }
+      });
+  }
+  
+  window.Flowchart = {
+    refresh: function() {
+      renderProjectSelector();
+    },
+    
+    changeProject: function(projectId) {
+      if (projectId) {
+        loadTasksForProject(projectId);
+      } else {
+        render([]);
       }
-    } catch (error) {
-      console.error('Flowchart render error:', error);
-      container.innerHTML = '<div class="empty-state">Failed to render flowchart</div>';
-    } finally {
-      isRendering = false;
     }
-  }
-
-  /**
-   * Refresh flowchart with current tasks
-   */
-  function refresh() {
-    const tasks = TaskList.getTasks();
-    render(tasks);
-  }
-
-  /**
-   * Update flowchart from WebSocket data
-   */
-  function update(data) {
-    if (Array.isArray(data)) {
-      currentTasks = data;
-      render(data);
-    } else if (data.tasks) {
-      currentTasks = data.tasks;
-      render(data.tasks);
-    }
-  }
-
-  /**
-   * Get current tasks
-   */
-  function getTasks() {
-    return [...currentTasks];
-  }
-
-  return {
-    render,
-    refresh,
-    update,
-    getTasks,
   };
 })();
-
-// Export for use in other modules
-window.Flowchart = Flowchart;
