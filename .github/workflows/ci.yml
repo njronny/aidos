@@ -78,6 +78,29 @@ jobs:
           DB_FILENAME: ':memory:'
           NODE_ENV: test
 
+  e2e-test:
+    name: E2E 端到端测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install chromium
+      - name: 运行 E2E 测试
+        run: npx playwright test
+        timeout-minutes: 15
+      - name: 上传 Playwright 报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   security:
     name: 安全扫描
     runs-on: ubuntu-latest
@@ -103,7 +126,7 @@ jobs:
 
   ci-summary:
     name: CI 汇总
-    needs: [lint, typecheck, unit-test, integration-test, security]
+    needs: [lint, typecheck, unit-test, integration-test, e2e-test, security]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -113,11 +136,13 @@ jobs:
           echo "TypeCheck:   ${{ needs.typecheck.result }}"
           echo "Unit Tests:  ${{ needs.unit-test.result }}"
           echo "Integration: ${{ needs.integration-test.result }}"
+          echo "E2E Tests:   ${{ needs.e2e-test.result }}"
           echo "Security:    ${{ needs.security.result }}"
           if [ "${{ needs.lint.result }}" = "failure" ] || \
              [ "${{ needs.typecheck.result }}" = "failure" ] || \
              [ "${{ needs.unit-test.result }}" = "failure" ] || \
-             [ "${{ needs.integration-test.result }}" = "failure" ]; then
+             [ "${{ needs.integration-test.result }}" = "failure" ] || \
+             [ "${{ needs.e2e-test.result }}" = "failure" ]; then
             echo "❌ CI failed"
             exit 1
           fi
