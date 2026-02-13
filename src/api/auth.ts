@@ -26,6 +26,12 @@ function validateToken(token: string): { username: string; valid: boolean } {
 
 // 认证中间件
 export async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  // Skip auth for public endpoints
+  const url = request.url;
+  if (url.includes('/auth/') || url === '/api' || url === '/api/') {
+    return;
+  }
+  
   const authHeader = request.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
