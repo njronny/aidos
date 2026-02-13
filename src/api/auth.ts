@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import { tokenStore } from './tokenStore';
 
 // 环境变量
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
@@ -10,9 +11,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-i
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '24h') as string;
 const JWT_REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as string;
 
-// Token存储 (内存中，生产环境应该使用数据库或Redis)
-const tokenStore = new Map<string, { username: string; createdAt: Date; expiresAt: Date }>();
-const refreshTokenStore = new Map<string, { username: string; createdAt: Date; expiresAt: Date }>();
+// Token存储已迁移到Redis (tokenStore.ts)
+// 保留内存回退用于Redis不可用时
+const refreshTokenStoreMemory = new Map<string, { username: string; createdAt: Date; expiresAt: Date }>();
 
 // 密码哈希轮数
 const SALT_ROUNDS = 10;
@@ -32,12 +33,30 @@ function generateAccessToken(username: string): string {
 }
 
 // 生成Refresh Token
-function generateRefreshToken(username: string): string {
+async function generateRefreshToken(username: string): Promise<string> {
   const token = uuidv4();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
   
-  refreshTokenStore.set(token, { username, createdAt: new Date(), expiresAt });
+  const tokenData = { 
+    username, 
+    createdAt: new Date(), 
+    expiresAt 
+  };
+  
+  // 尝试使用Redis存储
+  try {
+    await tokenStore.set(token, {
+      username,
+      createdAt: tokenData.createdAt.toISOString(),
+      expiresAt: tokenData.expiresAt.toISOString(),
+    }, 604800);
+  } catch (error) {
+    // Redis失败时使用内存回退
+    console.warn('[Auth] Redis存储失败，使用内存回退');
+    refreshTokenStoreMemory.set(token, tokenData);
+  }
+  
   return token;
 }
 
@@ -55,15 +74,38 @@ function verifyAccessToken(token: string): { username: string; valid: boolean } 
 }
 
 // 验证Refresh Token并生成新的Access Token
-function verifyRefreshToken(refreshToken: string): { username: string; newAccessToken: string | null; valid: boolean } {
-  const tokenData = refreshTokenStore.get(refreshToken);
+async function verifyRefreshToken(refreshToken: string): Promise<{ username: string; newAccessToken: string | null; valid: boolean }> {
+  // 尝试从Redis获取
+  let tokenData: { username: string; createdAt: string; expiresAt: string } | null = null;
+  
+  try {
+    tokenData = await tokenStore.get(refreshToken);
+  } catch (error) {
+    console.warn('[Auth] Redis获取失败，使用内存回退');
+  }
+  
+  // 如果Redis没有，尝试内存回退
+  if (!tokenData) {
+    const memoryData = refreshTokenStoreMemory.get(refreshToken);
+    if (memoryData) {
+      tokenData = {
+        username: memoryData.username,
+        createdAt: memoryData.createdAt.toISOString(),
+        expiresAt: memoryData.expiresAt.toISOString(),
+      };
+    }
+  }
   
   if (!tokenData) {
     return { username: '', newAccessToken: null, valid: false };
   }
   
-  if (tokenData.expiresAt < new Date()) {
-    refreshTokenStore.delete(refreshToken);
+  if (new Date(tokenData.expiresAt) < new Date()) {
+    // 删除过期token
+    try {
+      await tokenStore.delete(refreshToken);
+    } catch (error) {}
+    refreshTokenStoreMemory.delete(refreshToken);
     return { username: '', newAccessToken: null, valid: false };
   }
   
@@ -138,7 +180,7 @@ export function publicRoute() {
         
         // 生成Token
         const accessToken = generateAccessToken(username);
-        const refreshToken = generateRefreshToken(username);
+        const refreshToken = await generateRefreshToken(username);
         
         return reply.send({
           success: true,
@@ -165,7 +207,7 @@ export function publicRoute() {
           });
         }
         
-        const result = verifyRefreshToken(refreshToken);
+        const result = await verifyRefreshToken(refreshToken);
         
         if (!result.valid) {
           return reply.status(401).send({
@@ -216,15 +258,14 @@ export function publicRoute() {
         const authHeader = request.headers.authorization;
         const { refreshToken } = request.body || {};
         
-        // 删除Access Token
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.substring(7);
-          // 注意：JWT是无状态的，这里只清理Refresh Token
-        }
-        
-        // 删除Refresh Token
+        // 删除Access Token (JWT是无状态的，只清理Refresh Token)
+        // 从Redis删除Refresh Token
         if (refreshToken) {
-          refreshTokenStore.delete(refreshToken);
+          try {
+            await tokenStore.delete(refreshToken);
+          } catch (error) {
+            refreshTokenStoreMemory.delete(refreshToken);
+          }
         }
         
         return reply.send({
