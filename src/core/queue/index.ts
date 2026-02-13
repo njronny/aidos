@@ -8,3 +8,19 @@ export type { TaskQueueConfig, TaskJobData, TaskJobResult } from './TaskQueue';
 
 export { QueueScheduler } from './QueueScheduler';
 export type { QueueSchedulerConfig } from './QueueScheduler';
+
+export { DeadLetterQueue } from './DeadLetterQueue';
+export type { DLQEntry, DLQResolution, DLQConfig, DLQStats } from './DeadLetterQueue';
+
+export { IdempotencyService } from './IdempotencyService';
+export type { IdempotencyConfig, IdempotencyCheckResult } from './IdempotencyService';
+
+export { QueueMonitor } from './QueueMonitor';
+export type {
+  QueueHealthStatus,
+  AlertThresholds,
+  QueueHealthReport,
+  QueueMetrics,
+  QueueAlert,
+  QueueMonitorConfig,
+} from './QueueMonitor';
