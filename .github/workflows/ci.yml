@@ -90,15 +90,115 @@ jobs:
       - run: npm ci
       - name: 安装 Playwright 浏览器
         run: npx playwright install chromium
-      - name: 运行 E2E 测试
-        run: npx playwright test
+      - name: 运行 E2E 测试 (全部)
+        run: npx playwright test --grep="@smoke" --project=chromium
         timeout-minutes: 15
+        env:
+          CI: true
+      - name: 运行完整 E2E 测试
+        run: npx playwright test --project=chromium
+        timeout-minutes: 30
+        env:
+          CI: true
       - name: 上传 Playwright 报告
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
           path: playwright-report/
+          retention-days: 7
+
+  e2e-auth-test:
+    name: E2E 认证测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install chromium
+      - name: 运行认证 E2E 测试
+        run: npx playwright test e2e/auth.test.ts --project=chromium
+        timeout-minutes: 15
+        env:
+          CI: true
+      - name: 上传认证测试报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-auth-report
+          path: playwright-report/
+          retention-days: 7
+
+  e2e-crud-test:
+    name: E2E CRUD 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install chromium
+      - name: 运行 CRUD E2E 测试
+        run: npx playwright test e2e/crud.test.ts --project=chromium
+        timeout-minutes: 15
+        env:
+          CI: true
+
+  e2e-workflow-test:
+    name: E2E 工作流测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install chromium
+      - name: 运行工作流 E2E 测试
+        run: npx playwright test e2e/workflow-enhanced.test.ts --project=chromium
+        timeout-minutes: 20
+        env:
+          CI: true
+
+  performance-test:
+    name: 性能测试 (k6)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      - name: 启动API服务
+        run: |
+          npm run api &
+          sleep 10
+      - name: 运行 k6 负载测试
+        run: k6 run performance/api-performance.js --duration=30s --vus=5
+        env:
+          BASE_URL: http://localhost:3000
+      - name: 运行 k6 认证测试
+        run: k6 run performance/auth-performance.js --duration=30s --vus=5
+        env:
+          BASE_URL: http://localhost:3000
+      - name: 上传性能测试结果
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-report
+          path: performance/
           retention-days: 7
 
   security:
@@ -126,18 +226,22 @@ jobs:
 
   ci-summary:
     name: CI 汇总
-    needs: [lint, typecheck, unit-test, integration-test, e2e-test, security]
+    needs: [lint, typecheck, unit-test, integration-test, e2e-test, e2e-auth-test, e2e-crud-test, e2e-workflow-test, performance-test, security]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: 检查所有任务状态
         run: |
-          echo "Lint:        ${{ needs.lint.result }}"
-          echo "TypeCheck:   ${{ needs.typecheck.result }}"
-          echo "Unit Tests:  ${{ needs.unit-test.result }}"
-          echo "Integration: ${{ needs.integration-test.result }}"
-          echo "E2E Tests:   ${{ needs.e2e-test.result }}"
-          echo "Security:    ${{ needs.security.result }}"
+          echo "Lint:            ${{ needs.lint.result }}"
+          echo "TypeCheck:       ${{ needs.typecheck.result }}"
+          echo "Unit Tests:      ${{ needs.unit-test.result }}"
+          echo "Integration:     ${{ needs.integration-test.result }}"
+          echo "E2E Tests:       ${{ needs.e2e-test.result }}"
+          echo "E2E Auth Tests:  ${{ needs.e2e-auth-test.result }}"
+          echo "E2E CRUD Tests:  ${{ needs.e2e-crud-test.result }}"
+          echo "E2E Workflow:   ${{ needs.e2e-workflow-test.result }}"
+          echo "Performance:    ${{ needs.performance-test.result }}"
+          echo "Security:       ${{ needs.security.result }}"
           if [ "${{ needs.lint.result }}" = "failure" ] || \
              [ "${{ needs.typecheck.result }}" = "failure" ] || \
              [ "${{ needs.unit-test.result }}" = "failure" ] || \
