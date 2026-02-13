@@ -1316,3 +1316,24 @@ body {
 .project-card.new {
   animation: fadeInUp 0.3s ease;
 }
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .header { flex-direction: column; padding: 10px; }
+  .header-left h1 { font-size: 18px; }
+  .header-right { margin-top: 10px; }
+  .main-content { padding: 10px; }
+  .panel { margin-bottom: 10px; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .metric-card { padding: 10px; }
+  .metric-value { font-size: 20px; }
+  .btn-primary { padding: 8px 12px; font-size: 12px; }
+  input, textarea, select { font-size: 14px; padding: 8px; }
+  .task-filters { flex-wrap: wrap; }
+  .filter-btn { padding: 6px 10px; font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+  .panel-header h2 { font-size: 14px; }
+}
