@@ -132,11 +132,11 @@
         </div>
         <div class="panel-content">
           <div class="task-filters">
-            <button class="filter-btn active" data-filter="all">All</button>
-            <button class="filter-btn" data-filter="pending">Pending</button>
-            <button class="filter-btn" data-filter="running">Running</button>
-            <button class="filter-btn" data-filter="completed">Completed</button>
-            <button class="filter-btn" data-filter="failed">Failed</button>
+            <button class="filter-btn active" data-filter="all" onclick="filterTasks('all')">All</button>
+            <button class="filter-btn" data-filter="pending" onclick="filterTasks('pending')">Pending</button>
+            <button class="filter-btn" data-filter="running" onclick="filterTasks('running')">Running</button>
+            <button class="filter-btn" data-filter="completed" onclick="filterTasks('completed')">Completed</button>
+            <button class="filter-btn" data-filter="failed" onclick="filterTasks('failed')">Failed</button>
           </div>
           <div class="task-list" id="taskList">
             <div class="empty-state">No tasks yet</div>
