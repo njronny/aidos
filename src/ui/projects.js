@@ -1,8 +1,9 @@
 // Projects management UI
+const API_URL = 'http://127.0.0.1:3000';
 
 async function loadProjects() {
   try {
-    const res = await fetch(`${API_URL_FOR_ALL}/api/projects`);
+    const res = await fetch(`${API_URL}/api/projects`);
     const data = await res.json();
     
     const container = document.getElementById('projectsList');
@@ -15,7 +16,7 @@ async function loadProjects() {
     let html = '';
     for (const project of data.data) {
       // Get requirements for this project
-      const reqRes = await fetch(`${API_URL_FOR_ALL}/api/requirements?projectId=${project.id}`);
+      const reqRes = await fetch(`${API_URL}/api/requirements?projectId=${project.id}`);
       const reqData = await reqRes.json();
       const requirements = reqData.success ? reqData.data || [] : [];
       
@@ -73,7 +74,7 @@ Dashboard.refresh = async function() {
   }
   
   try {
-    const res = await fetch(`${API_URL_FOR_ALL}/api/projects`);
+    const res = await fetch(`${API_URL}/api/projects`);
     const data = await res.json();
     const totalProjects = data.success ? data.data?.length || 0 : 0;
     document.getElementById('totalProjects').textContent = totalProjects;
