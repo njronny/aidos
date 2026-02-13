@@ -166,7 +166,7 @@
     </footer>
   </div>
 
-  <!-- New Requirement Modal -->
+  <!-- New Requirement Modal - Enhanced -->
   <div class="modal" id="newRequirementModal">
     <div class="modal-content">
       <div class="modal-header">
@@ -174,40 +174,115 @@
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Project Name *</label>
-          <input type="text" id="projectName" placeholder="My Awesome Project" required>
+        <div class="form-section">
+          <h3 class="form-section-title">📁 Project Information</h3>
+          <div class="form-group">
+            <label>Project Name * <span class="required-mark">*</span></label>
+            <input type="text" id="projectName" class="form-input-enhanced" placeholder="My Awesome Project" required>
+            <span class="form-hint">Enter a unique name for your project</span>
+          </div>
+          <div class="form-group">
+            <label>Project Description</label>
+            <textarea id="projectDesc" class="form-input-enhanced" placeholder="Describe your project goals and scope..."></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Project Description</label>
-          <textarea id="projectDesc" placeholder="Describe your project..."></textarea>
+        
+        <div class="form-divider">
+          <span class="divider-text">OR SELECT EXISTING PROJECT</span>
         </div>
-        <hr>
-        <div class="form-group">
-          <label>Requirement Title *</label>
-          <input type="text" id="requirementTitle" placeholder="e.g., User Login" required>
+        
+        <div class="form-section">
+          <div class="form-group">
+            <label>Existing Project</label>
+            <select id="existingProjectId" class="form-input-enhanced">
+              <option value="">-- Select Existing Project --</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Requirement Description *</label>
-          <textarea id="requirementDesc" placeholder="What should be implemented?" required></textarea>
+        
+        <div class="form-divider">
+          <span class="divider-text">REQUIREMENT DETAILS</span>
         </div>
-        <div class="form-group">
-          <label>Priority</label>
-          <select id="requirementPriority">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
+        
+        <div class="form-section">
+          <h3 class="form-section-title">📝 Requirement</h3>
+          <div class="form-group">
+            <label>Requirement Title * <span class="required-mark">*</span></label>
+            <input type="text" id="requirementTitle" class="form-input-enhanced" placeholder="e.g., User Login" required>
+          </div>
+          <div class="form-group">
+            <label>Requirement Description * <span class="required-mark">*</span></label>
+            <textarea id="requirementDesc" class="form-input-enhanced" placeholder="What should be implemented? Include details like features, user stories, or technical requirements..." required></textarea>
+            <span class="form-hint">Be as detailed as possible for better AI understanding</span>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Priority</label>
+              <select id="requirementPriority" class="form-input-enhanced">
+                <option value="low">🔵 Low</option>
+                <option value="medium" selected>🟡 Medium</option>
+                <option value="high">🔴 High</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="requirementCategory" class="form-input-enhanced">
+                <option value="feature">✨ Feature</option>
+                <option value="bugfix">🐛 Bug Fix</option>
+                <option value="refactor">♻️ Refactor</option>
+                <option value="docs">📚 Documentation</option>
+                <option value="other">📌 Other</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="submitRequirement()">🚀 Start Development</button>
+        <button class="btn-primary btn-submit" id="submitRequirementBtn" onclick="submitRequirement()">
+          <span class="btn-text">🚀 Start Development</span>
+          <span class="btn-loading hidden">⏳ Processing...</span>
+        </button>
       </div>
     </div>
   </div>
 
+  <!-- Project Detail Modal -->
+  <div class="modal" id="projectDetailModal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>📁 Project Details</h2>
+        <button class="modal-close" onclick="closeProjectDetailModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="projectDetailContent">
+        Loading...
+      </div>
+    </div>
+  </div>
+
+  <!-- Task Log Modal -->
+  <div class="modal" id="taskLogModal">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h2>📋 Task Logs</h2>
+        <button class="modal-close" onclick="closeTaskLogModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="task-log-info" id="taskLogInfo"></div>
+        <div class="task-logs-container" id="taskLogsContainer"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="downloadLogsBtn">📥 Download</button>
+        <button class="btn-primary" onclick="closeTaskLogModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
   <!-- Scripts -->
+  <script src="ui.js"></script>
   <script src="dashboard.js"></script>
   <script src="flowchart.js"></script>
   <script src="tasklist.js"></script>
@@ -245,59 +320,92 @@
     var API_URL_FOR_ALL = API_URL;
 
     async function submitRequirement() {
+      const existingProjectId = document.getElementById('existingProjectId').value;
       const projectName = document.getElementById('projectName').value.trim();
       const projectDesc = document.getElementById('projectDesc').value.trim();
       const requirementTitle = document.getElementById('requirementTitle').value.trim();
       const requirementDesc = document.getElementById('requirementDesc').value.trim();
       const priority = document.getElementById('requirementPriority').value;
+      const category = document.getElementById('requirementCategory')?.value || 'feature';
 
-      if (!projectName || !requirementTitle || !requirementDesc) {
-        alert('Please fill in required fields!');
+      let projectId = existingProjectId;
+
+      // Validation
+      if (!projectId && !projectName) {
+        UI.showError('Validation Error', 'Please either select an existing project or enter a new project name');
         return;
       }
 
-      try {
-        // Create project
-        const projectRes = await fetch(`${API_URL}/api/projects`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: projectName, description: projectDesc })
-        });
-        const projectData = await projectRes.json();
+      if (!requirementTitle || !requirementDesc) {
+        UI.showError('Validation Error', 'Please fill in requirement title and description');
+        return;
+      }
 
-        if (projectData.success) {
-          const projectId = projectData.data.id;
-          
-          // Add requirement
-          const reqRes = await fetch(`${API_URL}/api/requirements`, {
+      // Show loading state
+      const btn = document.getElementById('submitRequirementBtn');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="btn-loading">⏳ Processing...</span>';
+      btn.disabled = true;
+
+      try {
+        // Create new project if needed
+        if (!projectId) {
+          const projectRes = await fetch(`${API_URL}/api/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              projectId: projectId,
-              title: requirementTitle,
-              description: requirementDesc,
-              priority: priority
-            })
+            body: JSON.stringify({ name: projectName, description: projectDesc })
           });
-          
-          Log.add('info', `Project "${projectName}" created with requirement "${requirementTitle}"`);
-          Log.add('success', 'AI agents are now working on your requirement!');
-          
-          closeModal();
-          loadProjects();
-          Dashboard.refresh();
-          
-          // Clear form
-          document.getElementById('projectName').value = '';
-          document.getElementById('projectDesc').value = '';
-          document.getElementById('requirementTitle').value = '';
-          document.getElementById('requirementDesc').value = '';
+          const projectData = await projectRes.json();
+
+          if (!projectData.success) {
+            throw new Error(projectData.error || 'Failed to create project');
+          }
+          projectId = projectData.data.id;
+          Log.add('info', `New project "${projectName}" created`);
         }
+        
+        // Add requirement
+        const reqRes = await fetch(`${API_URL}/api/requirements`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: projectId,
+            title: requirementTitle,
+            description: requirementDesc,
+            priority: priority,
+            category: category
+          })
+        });
+        
+        const reqData = await reqRes.json();
+        
+        if (!reqData.success) {
+          throw new Error(reqData.error || 'Failed to create requirement');
+        }
+        
+        Log.add('success', `Requirement "${requirementTitle}" added to project`);
+        Log.add('info', 'AI agents are now working on your requirement!');
+        
+        closeModal();
+        loadProjects();
+        Dashboard.refresh();
+        
+        // Clear form
+        document.getElementById('projectName').value = '';
+        document.getElementById('projectDesc').value = '';
+        document.getElementById('requirementTitle').value = '';
+        document.getElementById('requirementDesc').value = '';
+        document.getElementById('existingProjectId').value = '';
+        document.getElementById('requirementPriority').value = 'medium';
+        
       } catch (error) {
         console.error('Error:', error);
-        const errorMsg = 'Failed to create project. Error: ' + (error.message || JSON.stringify(error));
-        alert(errorMsg);
-        Log.add('error', errorMsg);
+        UI.showError('Failed to create requirement', error.message);
+        Log.add('error', 'Failed to create requirement: ' + error.message);
+      } finally {
+        // Restore button state
+        btn.innerHTML = originalText;
+        btn.disabled = false;
       }
     }
 

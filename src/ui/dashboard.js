@@ -1,6 +1,6 @@
 /**
  * Dashboard Module
- * Displays project metrics and statistics
+ * Displays project metrics and statistics with enhanced progress animation
  */
 
 const Dashboard = (function() {
@@ -11,6 +11,7 @@ const Dashboard = (function() {
     failed: 0,
     pending: 0,
   };
+  let lastProgress = 0;
 
   /**
    * Update dashboard metrics from tasks
@@ -31,10 +32,17 @@ const Dashboard = (function() {
     document.getElementById('failedTasks').textContent = metrics.failed;
     document.getElementById('pendingTasks').textContent = metrics.pending;
 
-    // Calculate progress
+    // Calculate progress with animation
     const progress = metrics.total > 0 
       ? Math.round((metrics.completed / metrics.total) * 100) 
       : 0;
+    
+    // Animate progress bar if changed
+    if (progress !== lastProgress) {
+      UI.animateProgress(lastProgress, progress, 500);
+      lastProgress = progress;
+    }
+    
     document.getElementById('progressPercent').textContent = `${progress}%`;
   }
 
@@ -63,10 +71,28 @@ const Dashboard = (function() {
    */
   function animateMetric(elementId) {
     const element = document.getElementById(elementId);
-    element.style.transform = 'scale(1.1)';
-    setTimeout(() => {
-      element.style.transform = 'scale(1)';
-    }, 150);
+    if (element) {
+      element.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        element.style.transform = 'scale(1)';
+      }, 150);
+    }
+  }
+
+  /**
+   * Refresh dashboard from API
+   */
+  async function refresh() {
+    try {
+      const res = await fetch(`${API_URL}/api/tasks`);
+      const data = await res.json();
+      if (data.success) {
+        TaskList.setTasks(data.data || []);
+        update();
+      }
+    } catch (err) {
+      console.error('Error refreshing dashboard:', err);
+    }
   }
 
   return {
@@ -74,6 +100,7 @@ const Dashboard = (function() {
     updateMetrics,
     getMetrics,
     animateMetric,
+    refresh,
   };
 })();
 
