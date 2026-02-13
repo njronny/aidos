@@ -16,6 +16,9 @@
         <span class="subtitle">AI DevOps System</span>
       </div>
       <div class="header-right">
+        <button class="btn-primary" onclick="showNewRequirementModal()">
+          ➕ New Requirement
+        </button>
         <div class="connection-status" id="connectionStatus">
           <span class="status-dot"></span>
           <span class="status-text">Connecting...</span>
@@ -29,10 +32,14 @@
       <section class="panel dashboard-panel">
         <div class="panel-header">
           <h2>📊 Dashboard</h2>
+          <button class="btn-refresh" onclick="Dashboard.refresh()">Refresh</button>
         </div>
         <div class="panel-content">
           <div class="metrics-grid" id="metricsGrid">
-            <!-- Metrics will be populated by dashboard.js -->
+            <div class="metric-card">
+              <div class="metric-label">Total Projects</div>
+              <div class="metric-value" id="totalProjects">-</div>
+            </div>
             <div class="metric-card">
               <div class="metric-label">Total Tasks</div>
               <div class="metric-value" id="totalTasks">-</div>
@@ -53,10 +60,26 @@
               <div class="metric-label">Pending</div>
               <div class="metric-value" id="pendingTasks">-</div>
             </div>
-            <div class="metric-card">
+            <div class="metric-card metric-wide">
               <div class="metric-label">Progress</div>
-              <div class="metric-value" id="progressPercent">-</div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+              </div>
+              <div class="progress-text" id="progressPercent">0%</div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Projects & Requirements Section -->
+      <section class="panel projects-panel">
+        <div class="panel-header">
+          <h2>📁 Projects & Requirements</h2>
+          <button class="btn-refresh" onclick="loadProjects()">Refresh</button>
+        </div>
+        <div class="panel-content">
+          <div class="projects-list" id="projectsList">
+            <div class="empty-state">No projects yet. Click "New Requirement" to start!</div>
           </div>
         </div>
       </section>
@@ -86,7 +109,6 @@
             <button class="filter-btn" data-filter="failed">Failed</button>
           </div>
           <div class="task-list" id="taskList">
-            <!-- Tasks will be populated by tasklist.js -->
             <div class="empty-state">No tasks yet</div>
           </div>
         </div>
@@ -100,7 +122,6 @@
         </div>
         <div class="panel-content">
           <div class="log-container" id="logContainer">
-            <!-- Logs will be populated by log.js -->
             <div class="log-entry log-info">System initialized</div>
           </div>
         </div>
@@ -115,12 +136,54 @@
     </footer>
   </div>
 
+  <!-- New Requirement Modal -->
+  <div class="modal" id="newRequirementModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🚀 New Project / Requirement</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Project Name *</label>
+          <input type="text" id="projectName" placeholder="My Awesome Project" required>
+        </div>
+        <div class="form-group">
+          <label>Project Description</label>
+          <textarea id="projectDesc" placeholder="Describe your project..."></textarea>
+        </div>
+        <hr>
+        <div class="form-group">
+          <label>Requirement Title *</label>
+          <input type="text" id="requirementTitle" placeholder="e.g., User Login" required>
+        </div>
+        <div class="form-group">
+          <label>Requirement Description *</label>
+          <textarea id="requirementDesc" placeholder="What should be implemented?" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="requirementPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitRequirement()">🚀 Start Development</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="dashboard.js"></script>
   <script src="flowchart.js"></script>
   <script src="tasklist.js"></script>
   <script src="log.js"></script>
   <script src="websocket.js"></script>
+  <script src="projects.js"></script>
   <script>
     // Initialize Mermaid
     mermaid.initialize({
@@ -128,215 +191,96 @@
       theme: 'dark',
       themeVariables: {
         primaryColor: '#3b82f6',
-        primaryTextColor: '#e5e7eb',
+        primaryTextColor: '#fff',
         primaryBorderColor: '#3b82f6',
         lineColor: '#6b7280',
-        secondaryColor: '#10b981',
-        tertiaryColor: '#1f2937',
-        background: '#111827',
-        mainBkg: '#1f2937',
-        nodeBorder: '#3b82f6',
-        clusterBkg: '#1f2937',
-        clusterBorder: '#374151',
-        titleColor: '#e5e7eb',
-        edgeLabelBackground: '#1f2937',
-      },
-      flowchart: {
-        curve: 'basis',
-        padding: 20,
-      },
+        secondaryColor: '#1f2937',
+        tertiaryColor: '#111827'
+      }
     });
 
-    // Global WebSocket connection
-    let ws = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelay = 3000;
+    // Modal functions
+    function showNewRequirementModal() {
+      document.getElementById('newRequirementModal').classList.add('active');
+      document.getElementById('projectName').focus();
+    }
 
-    function connectWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      
-      // For demo, use a mock if no WebSocket server
+    function closeModal() {
+      document.getElementById('newRequirementModal').classList.remove('active');
+    }
+
+    async function submitRequirement() {
+      const projectName = document.getElementById('projectName').value.trim();
+      const projectDesc = document.getElementById('projectDesc').value.trim();
+      const requirementTitle = document.getElementById('requirementTitle').value.trim();
+      const requirementDesc = document.getElementById('requirementDesc').value.trim();
+      const priority = document.getElementById('requirementPriority').value;
+
+      if (!projectName || !requirementTitle || !requirementDesc) {
+        alert('Please fill in required fields!');
+        return;
+      }
+
       try {
-        ws = new WebSocket(wsUrl);
-        
-        ws.onopen = function() {
-          console.log('WebSocket connected');
-          updateConnectionStatus('connected');
-          reconnectAttempts = 0;
-        };
-        
-        ws.onmessage = function(event) {
-          try {
-            const message = JSON.parse(event.data);
-            handleWebSocketMessage(message);
-          } catch (e) {
-            console.error('Failed to parse WebSocket message:', e);
-          }
-        };
-        
-        ws.onclose = function() {
-          updateConnectionStatus('disconnected');
-          attemptReconnect();
-        };
-        
-        ws.onerror = function(error) {
-          console.error('WebSocket error:', error);
-          updateConnectionStatus('error');
-        };
-      } catch (e) {
-        console.log('WebSocket not available, using mock mode');
-        updateConnectionStatus('mock');
-        startMockUpdates();
-      }
-    }
+        // Create project
+        const projectRes = await fetch(`${API_BASE}/api/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: projectName, description: projectDesc })
+        });
+        const projectData = await projectRes.json();
 
-    function updateConnectionStatus(status) {
-      const statusEl = document.getElementById('connectionStatus');
-      const dot = statusEl.querySelector('.status-dot');
-      const text = statusEl.querySelector('.status-text');
-      
-      statusEl.className = 'connection-status status-' + status;
-      
-      switch(status) {
-        case 'connected':
-          dot.style.backgroundColor = '#10b981';
-          text.textContent = 'Connected';
-          break;
-        case 'disconnected':
-          dot.style.backgroundColor = '#ef4444';
-          text.textContent = 'Disconnected';
-          break;
-        case 'error':
-          dot.style.backgroundColor = '#f59e0b';
-          text.textContent = 'Error';
-          break;
-        case 'mock':
-          dot.style.backgroundColor = '#6b7280';
-          text.textContent = 'Mock Mode';
-          break;
-        default:
-          dot.style.backgroundColor = '#6b7280';
-          text.textContent = 'Connecting...';
-      }
-    }
-
-    function attemptReconnect() {
-      if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++;
-        console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
-        setTimeout(connectWebSocket, reconnectDelay);
-      } else {
-        console.log('Max reconnection attempts reached, switching to mock mode');
-        updateConnectionStatus('mock');
-        startMockUpdates();
-      }
-    }
-
-    function handleWebSocketMessage(message) {
-      const timestamp = new Date().toLocaleTimeString();
-      
-      switch(message.type) {
-        case 'task_update':
-          TaskList.updateTask(message.data);
-          Dashboard.update();
-          Flowchart.refresh();
-          Log.add({
-            time: timestamp,
-            level: 'info',
-            message: `Task ${message.data.name} status: ${message.data.status}`
+        if (projectData.success) {
+          const projectId = projectData.data.id;
+          
+          // Add requirement
+          const reqRes = await fetch(`${API_BASE}/api/requirements`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectId: projectId,
+              title: requirementTitle,
+              description: requirementDesc,
+              priority: priority
+            })
           });
-          break;
           
-        case 'tasks_update':
-          TaskList.setTasks(message.data);
-          Dashboard.update();
-          Flowchart.refresh();
-          break;
+          Log.add('info', `Project "${projectName}" created with requirement "${requirementTitle}"`);
+          Log.add('success', 'AI agents are now working on your requirement!');
           
-        case 'metrics_update':
-          Dashboard.updateMetrics(message.data);
-          break;
+          closeModal();
+          loadProjects();
+          Dashboard.refresh();
           
-        case 'log':
-          Log.add({
-            time: timestamp,
-            level: message.level || 'info',
-            message: message.message
-          });
-          break;
-          
-        case 'flowchart_update':
-          Flowchart.update(message.data);
-          break;
-          
-        default:
-          console.log('Unknown message type:', message.type);
-      }
-      
-      document.getElementById('lastUpdate').textContent = `Last update: ${timestamp}`;
-    }
-
-    // Mock data for demo
-    let mockUpdateInterval = null;
-
-    function startMockUpdates() {
-      // Initialize with mock data
-      const mockTasks = [
-        { id: 'task1', name: 'Setup Project Structure', status: 'completed', dependencies: [] },
-        { id: 'task2', name: 'Implement Analyzer', status: 'completed', dependencies: ['task1'] },
-        { id: 'task3', name: 'Implement Scheduler', status: 'running', dependencies: ['task1'] },
-        { id: 'task4', name: 'Integration Tests', status: 'pending', dependencies: ['task2', 'task3'] },
-        { id: 'task5', name: 'Build Documentation', status: 'pending', dependencies: ['task4'] },
-        { id: 'task6', name: 'Deploy to Production', status: 'pending', dependencies: ['task4'] },
-      ];
-      
-      TaskList.setTasks(mockTasks);
-      Dashboard.update();
-      Flowchart.refresh();
-      
-      Log.add({ time: new Date().toLocaleTimeString(), level: 'info', message: 'Mock data loaded' });
-      
-      // Simulate periodic updates
-      mockUpdateInterval = setInterval(() => {
-        const tasks = TaskList.getTasks();
-        const runningTask = tasks.find(t => t.status === 'running');
-        
-        if (runningTask) {
-          // Complete the running task
-          const completedIdx = tasks.findIndex(t => t.id === runningTask.id);
-          tasks[completedIdx].status = 'completed';
-          
-          // Start a pending task
-          const pendingTask = tasks.find(t => t.status === 'pending' && 
-            t.dependencies.every(dep => tasks.find(ot => ot.id === dep && ot.status === 'completed')));
-          
-          if (pendingTask) {
-            const pendingIdx = tasks.findIndex(t => t.id === pendingTask.id);
-            tasks[pendingIdx].status = 'running';
-          }
-          
-          TaskList.setTasks(tasks);
-          Dashboard.update();
-          Flowchart.refresh();
+          // Clear form
+          document.getElementById('projectName').value = '';
+          document.getElementById('projectDesc').value = '';
+          document.getElementById('requirementTitle').value = '';
+          document.getElementById('requirementDesc').value = '';
         }
-      }, 5000);
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to create project. Make sure API is running.');
+      }
     }
 
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        TaskList.filter(btn.dataset.filter);
-      });
-    });
+    // API Base URL
+    const API_BASE = 'http://127.0.0.1:3000';
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
-      connectWebSocket();
-      Log.add({ time: new Date().toLocaleTimeString(), level: 'info', message: 'UI initialized' });
+      Log.add('info', 'AIDOS UI initialized');
+      WebSocket.connect();
+      Dashboard.refresh();
+      loadProjects();
+      TaskList.refresh();
+    });
+
+    // Close modal on outside click
+    document.getElementById('newRequirementModal').addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) {
+        closeModal();
+      }
     });
   </script>
 </body>
