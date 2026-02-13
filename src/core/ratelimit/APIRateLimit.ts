@@ -142,7 +142,13 @@ class APIRateLimiter {
         const key = this.generateKey(request);
         const result = await limiter.consume(key);
         
-        return { allowed: result.allowed, result, rule: { ...rule, config: this.config.global } as RateLimitRule };
+        const globalRule: RateLimitRule = {
+          id: '__global__',
+          name: 'Global',
+          path: '*',
+          config: this.config.global
+        };
+        return { allowed: result.allowed, result, rule: globalRule };
       }
       return { allowed: true };
     }

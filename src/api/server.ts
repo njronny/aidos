@@ -100,16 +100,11 @@ async function startServer() {
       }
       return reply.send({ success: true, valid: true });
     });
-
-    // Register routes (with auth middleware for protected routes)
-    await fastify.register(async (instance) => {
-      instance.addHook('preHandler', authMiddleware);
-      await instance.register(projectRoutes, { prefix: '/projects' });
-      await instance.register(requirementRoutes, { prefix: '/requirements' });
-      await instance.register(taskRoutes, { prefix: '/tasks' });
-      await instance.register(agentRoutes, { prefix: '/agents' });
-    }, { prefix: '/api' });
-
+    // Register routes directly
+    await fastify.register(projectRoutes, { prefix: '/api' });
+    await fastify.register(requirementRoutes, { prefix: '/api' });
+    await fastify.register(taskRoutes, { prefix: '/api' });
+    await fastify.register(agentRoutes, { prefix: '/api' });
     // Health check
     fastify.get('/health', async (request, reply) => {
       return {
@@ -230,3 +225,6 @@ export { fastify, startServer };
 
 // Start if run directly
 startServer();
+
+fastify.get('/debug', async () => ({ routes: fastify.printRoutes() }));
+

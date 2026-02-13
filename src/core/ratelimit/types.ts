@@ -98,6 +98,8 @@ export interface IRateLimiter {
 
 // ============= API限流保护类型 =============
 
+import { FastifyRequest } from 'fastify';
+
 /**
  * API限流保护配置
  */
@@ -113,9 +115,9 @@ export interface APIRateLimitConfig {
   /** 是否返回详细限流信息头 */
   includeHeaders?: boolean;
   /** 自定义key生成器 */
-  keyGenerator?: (request: Request) => string;
+  keyGenerator?: (request: FastifyRequest) => string;
   /** 自定义跳过检查函数 */
-  skip?: (request: Request) => boolean;
+  skip?: (request: FastifyRequest) => boolean;
 }
 
 /**
@@ -124,13 +126,13 @@ export interface APIRateLimitConfig {
 export interface RateLimitMiddlewareOptions {
   /** 错误处理器 */
   errorHandler?: (
-    request: Request,
+    request: FastifyRequest,
     result: RateLimitResult
   ) => { statusCode: number; message: string };
   /** 允许通过的回调 */
-  onAllowed?: (request: Request, result: RateLimitResult) => void;
+  onAllowed?: (request: FastifyRequest, result: RateLimitResult) => void;
   /** 被拒绝的回调 */
-  onDenied?: (request: Request, result: RateLimitResult) => void;
+  onDenied?: (request: FastifyRequest, result: RateLimitResult) => void;
 }
 
 // ============= 限流统计类型 =============

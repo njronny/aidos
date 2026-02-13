@@ -20,8 +20,8 @@ function toApiProject(p: any): Project {
     name: p.name,
     description: p.description,
     status: p.status,
-    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
-    updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt,
+    createdAt: String(p.createdAt || ""),
+    updatedAt: String(p.updatedAt || ""),
   };
 }
 
@@ -33,8 +33,8 @@ function toApiRequirement(r: any): Requirement {
     description: r.content,
     priority: r.priority,
     status: r.status === 'analyzing' ? 'in_progress' : r.status === 'analyzed' ? 'completed' : r.status === 'rejected' ? 'rejected' : 'pending',
-    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
-    updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+    createdAt: String(r.createdAt || ""),
+    updatedAt: String(r.updatedAt || ""),
   };
 }
 
@@ -57,8 +57,8 @@ function toApiTask(t: any): Task {
     description: t.description,
     status: t.status === 'running' ? 'in_progress' : t.status === 'assigned' ? 'assigned' : t.status,
     result: t.result ? JSON.stringify(t.result) : undefined,
-    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+    createdAt: String(t.createdAt || ""),
+    updatedAt: String(t.updatedAt || ""),
   };
 }
 
@@ -82,8 +82,8 @@ function toApiAgent(a: any): Agent {
     status: a.status,
     capabilities: a.capabilities,
     currentTaskId: a.currentTaskId,
-    createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
-    updatedAt: a.updatedAt instanceof Date ? a.updatedAt.toISOString() : a.updatedAt,
+    createdAt: String(a.createdAt || ""),
+    updatedAt: String(a.updatedAt || ""),
   };
 }
 
