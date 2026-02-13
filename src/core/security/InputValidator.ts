@@ -390,5 +390,3 @@ export function createValidator(schema: ValidationSchema) {
   const validator = new InputValidator(schema);
   return validator.createMiddleware();
 }
-
-export { InputValidator, ValidationSchema, ValidationRule, ValidationError };
