@@ -4,6 +4,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import { Skill, SkillManifest, SkillLoaderConfig, SkillLoadResult, LoadedSkill, SecurityPolicy, TrustedSource } from './types';
+import { JSONParseError, safeJSONParse } from '../../utils/errors';
+import { TIMEOUTS } from '../../config/constants';
 
 const execAsync = promisify(exec);
 
@@ -201,7 +203,7 @@ export class SkillLoader {
   async findSkills(query: string): Promise<SkillSearchResult[]> {
     try {
       const { stdout } = await execAsync(`npx skills find ${query} --list`, {
-        timeout: 30000,
+        timeout: TIMEOUTS.CLI_DEFAULT,
       });
       
       // Parse CLI output
@@ -303,7 +305,7 @@ export class SkillLoader {
       // Use skills CLI to install
       const installCmd = `npx skills add ${skillRef} --yes`;
       const { stdout, stderr } = await execAsync(installCmd, {
-        timeout: 120000,
+        timeout: TIMEOUTS.SKILL_INSTALL,
         cwd: this.config.skillsPath,
       });
 
@@ -433,7 +435,7 @@ export class SkillLoader {
     try {
       // Use skills CLI to check for updates
       const { stdout } = await execAsync('npx skills check', {
-        timeout: 60000,
+        timeout: TIMEOUTS.SKILL_UPDATE_CHECK,
       });
       
       console.log('Update check output:', stdout);
@@ -493,7 +495,7 @@ export class SkillLoader {
     
     try {
       await execAsync('npx skills update --yes', {
-        timeout: 180000,
+        timeout: TIMEOUTS.SKILL_UPDATE_ALL,
       });
       
       // Reload all skills after update
@@ -549,8 +551,25 @@ export class SkillLoader {
 
       // Read manifest
       const manifestPath = path.join(skillPath, 'skill.json');
-      const manifestContent = await fs.readFile(manifestPath, 'utf-8');
-      const manifest: SkillManifest = JSON.parse(manifestContent);
+      let manifestContent: string;
+      try {
+        manifestContent = await fs.readFile(manifestPath, 'utf-8');
+      } catch (error) {
+        return {
+          success: false,
+          error: `无法读取技能清单文件: ${(error as Error).message}`,
+        };
+      }
+
+      // 安全地解析JSON
+      const parseResult = safeJSONParse<SkillManifest>(manifestContent);
+      if (!parseResult.success) {
+        return {
+          success: false,
+          error: `技能清单JSON解析失败: ${parseResult.error.message}`,
+        };
+      }
+      const manifest = parseResult.data;
 
       // Security validation
       const validation = this.validateSkillManifest(manifest);
