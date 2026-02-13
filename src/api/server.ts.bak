@@ -1,8 +1,6 @@
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
-import fastifyStatic from '@fastify/static';
-import path from 'path';
 import { projectRoutes } from './routes/projects';
 import { requirementRoutes } from './routes/requirements';
 import { taskRoutes } from './routes/tasks';
@@ -54,12 +52,6 @@ async function startServer() {
     // Register CORS
     await fastify.register(cors, {
       origin: true,
-    });
-
-    // Serve static files
-    await fastify.register(fastifyStatic, {
-      root: '/root/.openclaw/workspace/aidos/dist/public',
-      prefix: '/',
     });
 
     // Register WebSocket

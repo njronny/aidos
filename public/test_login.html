@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width-width, initial-scale=1.0">
+  <title>AIDOS - Test</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="login.css">
+</head>
+<body>
+  <div class="login-page" id="loginPage">
+    <div class="login-container">
+      <div class="login-card">
+        <h1>AIDOS 登录</h1>
+        <form id="loginForm">
+          <input type="text" id="username" placeholder="用户名" required>
+          <input type="password" id="password" placeholder="密码" required>
+          <button type="submit">登录</button>
+        </form>
+        <div id="error" style="color:red"></div>
+        <p>默认: admin / aidos123</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // 登录逻辑
+  const Login = {
+    async login(username, password) {
+      console.log('Login attempt:', username);
+      if (username === 'admin' && password === 'aidos123') {
+        localStorage.setItem('token', 'demo');
+        alert('登录成功！');
+        return { success: true };
+      }
+      return { success: false, error: '错误' };
+    }
+  };
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    const result = await Login.login(u, p);
+    if (!result.success) {
+      document.getElementById('error').textContent = result.error;
+    }
+  });
+  </script>
+</body>
+</html>
