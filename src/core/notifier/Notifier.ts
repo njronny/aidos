@@ -8,6 +8,11 @@ import {
   ChannelType,
   SendResult,
 } from './types';
+import { EmailService } from '../../integrations/notification/EmailService';
+import { DingTalkService } from '../../integrations/notification/DingTalkService';
+import { SlackService } from '../../integrations/notification/SlackService';
+import { TemplateManager } from '../../integrations/notification/TemplateManager';
+import { UnifiedMessage } from '../../integrations/notification/types';
 
 /**
  * Notifier - Message Notification Module
@@ -17,9 +22,16 @@ export class Notifier {
   private config: NotifierConfig;
   private history: Notification[] = [];
   private maxHistorySize: number;
+  private templateManager: TemplateManager;
+  
+  // Service instances (lazy loaded)
+  private emailService: EmailService | null = null;
+  private dingTalkService: DingTalkService | null = null;
+  private slackService: SlackService | null = null;
 
   constructor(config: Partial<NotifierConfig> = {}) {
     this.maxHistorySize = 1000;
+    this.templateManager = new TemplateManager();
 
     this.config = {
       channels: config.channels ?? [{ type: 'console', config: {}, enabled: true }],
@@ -29,6 +41,36 @@ export class Notifier {
       progressInterval: config.progressInterval ?? 30,
       quietHours: config.quietHours,
     };
+    
+    // Initialize services from channel config
+    this.initializeServices();
+  }
+
+  /**
+   * Initialize services from channel config
+   */
+  private initializeServices(): void {
+    for (const channel of this.config.channels) {
+      if (!channel.enabled) continue;
+      
+      switch (channel.type) {
+        case 'email':
+          if (channel.config.email || channel.config.smtpHost) {
+            this.emailService = new EmailService(channel.config);
+          }
+          break;
+        case 'dingtalk':
+          if (channel.config.dingtalkWebhook) {
+            this.dingTalkService = new DingTalkService(channel.config);
+          }
+          break;
+        case 'slack':
+          if (channel.config.slackWebhook || channel.config.slackToken) {
+            this.slackService = new SlackService(channel.config);
+          }
+          break;
+      }
+    }
   }
 
   /**
@@ -62,6 +104,21 @@ export class Notifier {
       timestamp: new Date(),
       priority,
       metadata,
+    };
+  }
+
+  /**
+   * Convert Notification to UnifiedMessage
+   */
+  private toUnifiedMessage(notification: Notification): UnifiedMessage {
+    return {
+      id: notification.id,
+      type: notification.type,
+      priority: notification.priority,
+      title: notification.title,
+      content: notification.message,
+      timestamp: notification.timestamp,
+      metadata: notification.metadata,
     };
   }
 
@@ -109,6 +166,19 @@ export class Notifier {
   }
 
   /**
+   * Notify using template
+   */
+  async notifyWithTemplate(
+    type: NotificationType,
+    variables: Record<string, unknown>,
+    priority: NotificationPriority = 'normal',
+    metadata?: Record<string, unknown>
+  ): Promise<SendResult[]> {
+    const message = this.templateManager.createMessage(type, priority, variables, metadata);
+    return this.notify(message.type, message.title, message.content, priority, metadata);
+  }
+
+  /**
    * Check if notification type should be sent
    */
   private shouldNotify(type: NotificationType): boolean {
@@ -148,7 +218,13 @@ export class Notifier {
         await this.sendToQQ(channel.config.webhookUrl!, notification);
         break;
       case 'email':
-        await this.sendToEmail(channel.config.email!, notification);
+        await this.sendToEmail(channel.config, notification);
+        break;
+      case 'dingtalk':
+        await this.sendToDingTalk(channel.config, notification);
+        break;
+      case 'slack':
+        await this.sendToSlack(channel.config, notification);
         break;
     }
   }
@@ -185,7 +261,6 @@ export class Notifier {
    * Send to webhook
    */
   private async sendToWebhook(url: string, notification: Notification): Promise<void> {
-    // Placeholder for webhook implementation
     console.log(`[Webhook] Would send to ${url}:`, notification);
   }
 
@@ -197,7 +272,6 @@ export class Notifier {
     chatId: string,
     notification: Notification
   ): Promise<void> {
-    // Placeholder for Telegram implementation
     console.log(`[Telegram] Would send to ${chatId}:`, notification);
   }
 
@@ -205,16 +279,55 @@ export class Notifier {
    * Send to QQ
    */
   private async sendToQQ(webhookUrl: string, notification: Notification): Promise<void> {
-    // Placeholder for QQ webhook implementation
     console.log(`[QQ] Would send to ${webhookUrl}:`, notification);
   }
 
   /**
-   * Send to email
+   * Send to email using EmailService
    */
-  private async sendToEmail(email: string, notification: Notification): Promise<void> {
-    // Placeholder for email implementation
-    console.log(`[Email] Would send to ${email}:`, notification);
+  private async sendToEmail(config: NotificationChannel['config'], notification: Notification): Promise<void> {
+    // Use service if available, otherwise fallback to placeholder
+    if (this.emailService) {
+      const message = this.toUnifiedMessage(notification);
+      await this.emailService.send(message);
+    } else {
+      // Initialize service from config
+      const service = new EmailService(config);
+      const message = this.toUnifiedMessage(notification);
+      await service.send(message);
+    }
+  }
+
+  /**
+   * Send to DingTalk using DingTalkService
+   */
+  private async sendToDingTalk(config: NotificationChannel['config'], notification: Notification): Promise<void> {
+    if (this.dingTalkService) {
+      const message = this.toUnifiedMessage(notification);
+      await this.dingTalkService.send(message);
+    } else if (config.dingtalkWebhook) {
+      const service = new DingTalkService(config);
+      const message = this.toUnifiedMessage(notification);
+      await service.send(message);
+    } else {
+      throw new Error('DingTalk webhook not configured');
+    }
+  }
+
+  /**
+   * Send to Slack using SlackService
+   */
+  private async sendToSlack(config: NotificationChannel['config'], notification: Notification): Promise<void> {
+    if (this.slackService) {
+      const message = this.toUnifiedMessage(notification);
+      await this.slackService.send(message);
+    } else if (config.slackWebhook || config.slackToken) {
+      const service = new SlackService(config);
+      const message = this.toUnifiedMessage(notification);
+      await service.send(message);
+    } else {
+      throw new Error('Slack not configured');
+    }
   }
 
   /**
@@ -315,6 +428,8 @@ export class Notifier {
    */
   addChannel(channel: NotificationChannel): void {
     this.config.channels.push(channel);
+    // Re-initialize services
+    this.initializeServices();
   }
 
   /**
@@ -353,6 +468,14 @@ export class Notifier {
    */
   updateConfig(config: Partial<NotifierConfig>): void {
     this.config = { ...this.config, ...config };
+    this.initializeServices();
+  }
+
+  /**
+   * Get template manager
+   */
+  getTemplateManager(): TemplateManager {
+    return this.templateManager;
   }
 }
 
