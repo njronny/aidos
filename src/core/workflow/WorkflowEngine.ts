@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Requirement } from '../../api/types';
-import { Task, TaskStatus, TaskPriority } from '../../types';
+import { Task, TaskStatus, TaskPriority, TaskResult } from '../../types';
 import { Notifier } from '../notifier/Notifier';
+import { TaskScheduler } from '../scheduler/TaskScheduler';
 
 /**
  * Workflow Events
@@ -73,10 +74,13 @@ export class WorkflowEngine {
   private workflows: Map<string, Workflow> = new Map();
   private eventHandlers: WorkflowEventHandler[] = [];
   private notifier: Notifier;
+  private scheduler: TaskScheduler;
+  private isExecuting: boolean = false;
 
   constructor(
     config: Partial<WorkflowEngineConfig> = {},
-    notifier?: Notifier
+    notifier?: Notifier,
+    scheduler?: TaskScheduler
   ) {
     this.config = {
       maxConcurrentTasks: config.maxConcurrentTasks ?? 5,
@@ -86,6 +90,104 @@ export class WorkflowEngine {
     };
 
     this.notifier = notifier ?? new Notifier();
+    this.scheduler = scheduler ?? new TaskScheduler({
+      maxConcurrentTasks: this.config.maxConcurrentTasks,
+      taskTimeout: this.config.taskTimeout,
+      enableParallelExecution: this.config.enableParallelExecution,
+    });
+    
+    // 设置默认的任务执行器
+    this.setupDefaultExecutor();
+    // 启动任务调度循环
+    this.startSchedulerLoop();
+  }
+
+  /**
+   * 设置默认的任务执行器
+   */
+  private setupDefaultExecutor(): void {
+    this.scheduler.registerExecutor('workflow', async (task: Task): Promise<TaskResult> => {
+      console.log(`[WorkflowEngine] Executing task: ${task.name}`);
+      
+      // 模拟任务执行（实际使用时替换为真实业务逻辑）
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({
+            success: true,
+            output: `Task ${task.name} completed`,
+            duration: 1000,
+          });
+        }, 1000); // 默认1秒执行时间
+      });
+    });
+  }
+
+  /**
+   * 启动任务调度循环
+   */
+  private startSchedulerLoop(): void {
+    setInterval(async () => {
+      if (this.isExecuting) return;
+      
+      try {
+        await this.executeReadyTasks();
+      } catch (error) {
+        console.error('[WorkflowEngine] Scheduler loop error:', error);
+      }
+    }, 2000); // 每2秒检查一次
+  }
+
+  /**
+   * 执行就绪的任务
+   */
+  private async executeReadyTasks(): Promise<void> {
+    const runnableTasks = this.scheduler.getRunnableTasks();
+    
+    for (const task of runnableTasks) {
+      const workflow = this.findWorkflowByTaskId(task.id);
+      if (!workflow) continue;
+
+      this.isExecuting = true;
+      
+      try {
+        // 更新任务状态为开始
+        workflow.tasks = workflow.tasks.map(t => 
+          t.id === task.id ? { ...t, status: TaskStatus.RUNNING, startedAt: new Date() } : t
+        );
+        
+        this.emitEvent({
+          type: WorkflowEventType.TASK_STARTED,
+          requirementId: workflow.requirementId,
+          taskIds: [task.id],
+          timestamp: new Date(),
+          data: { taskName: task.name },
+        });
+
+        // 执行任务
+        await this.scheduler.executeTask(task.id, 'workflow');
+        
+        // 更新工作流中的任务状态
+        this.updateTaskStatus(workflow.id, task.id, TaskStatus.COMPLETED);
+        
+      } catch (error) {
+        console.error(`[WorkflowEngine] Task ${task.id} failed:`, error);
+        this.updateTaskStatus(workflow.id, task.id, TaskStatus.FAILED);
+      } finally {
+        this.isExecuting = false;
+      }
+    }
+  }
+
+  /**
+   * 根据任务ID查找工作流
+   */
+  private findWorkflowByTaskId(taskId: string): Workflow | undefined {
+    for (const workflow of this.workflows.values()) {
+      if (workflow.tasks.some(t => t.id === taskId)) {
+        return workflow;
+      }
+    }
+    return undefined;
   }
 
   /**
@@ -122,6 +224,65 @@ export class WorkflowEngine {
         workflow.tasks = tasks;
         workflow.status = 'running';
         workflow.startedAt = new Date();
+
+        // 将任务添加到TaskScheduler执行
+        // 由于TaskScheduler需要依赖的任务ID已经存在，我们按拓扑顺序添加
+        // 先找出没有依赖的任务，然后添加它们，再添加依赖它们的任务
+        const addedTaskIds = new Set<string>();
+        
+        // 反复遍历，直到所有任务都添加完
+        let remainingTasks = [...tasks];
+        while (remainingTasks.length > 0) {
+          const tasksToAdd: Task[] = [];
+          const tasksToKeep: Task[] = [];
+          
+          for (const task of remainingTasks) {
+            // 检查所有依赖是否都已添加
+            const depsReady = task.dependencies.every(depId => addedTaskIds.has(depId));
+            if (depsReady) {
+              tasksToAdd.push(task);
+              addedTaskIds.add(task.id);
+            } else {
+              tasksToKeep.push(task);
+            }
+          }
+          
+          // 添加本轮可以添加的任务
+          for (const task of tasksToAdd) {
+            try {
+              this.scheduler.addTask({
+                name: task.name,
+                description: task.description,
+                priority: task.priority,
+                dependencies: task.dependencies || [],
+                maxRetries: task.maxRetries ?? 3,
+              });
+            } catch (error) {
+              console.error(`[WorkflowEngine] Failed to add task ${task.name}:`, error);
+            }
+          }
+          
+          // 如果没有任务可以添加但还有剩余任务，说明有循环依赖
+          if (tasksToAdd.length === 0 && tasksToKeep.length > 0) {
+            console.error('[WorkflowEngine] Circular dependency detected, adding remaining tasks without dependencies');
+            for (const task of tasksToKeep) {
+              try {
+                this.scheduler.addTask({
+                  name: task.name,
+                  description: task.description,
+                  priority: task.priority,
+                  dependencies: [],
+                  maxRetries: task.maxRetries ?? 3,
+                });
+              } catch (error) {
+                console.error(`[WorkflowEngine] Failed to add task ${task.name}:`, error);
+              }
+            }
+            break;
+          }
+          
+          remainingTasks = tasksToKeep;
+        }
 
         this.emitEvent({
           type: WorkflowEventType.TASKS_CREATED,
@@ -164,29 +325,33 @@ export class WorkflowEngine {
     const tasks: Task[] = [];
     const taskTemplates = this.generateTaskTemplates(requirement);
 
+    // 第一遍：创建所有任务对象（无依赖）
     for (const template of taskTemplates) {
-      // Resolve dependencies to actual task IDs
-      const dependencies: string[] = [];
-      for (const depName of template.dependencies) {
-        const depTask = tasks.find((t) => t.name === depName);
-        if (depTask) {
-          dependencies.push(depTask.id);
-        }
-      }
-
       const task: Task = {
         id: uuidv4(),
         name: template.name,
         description: template.description,
         status: TaskStatus.PENDING,
         priority: template.priority,
-        dependencies,
+        dependencies: [], // 先不填依赖
         createdAt: new Date(),
         retries: 0,
         maxRetries: 3,
       };
-
       tasks.push(task);
+    }
+
+    // 第二遍：解析依赖名称到实际的task ID
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const template = taskTemplates[i];
+      
+      for (const depName of template.dependencies) {
+        const depTask = tasks.find((t) => t.name === depName);
+        if (depTask) {
+          task.dependencies.push(depTask.id);
+        }
+      }
     }
 
     return tasks;

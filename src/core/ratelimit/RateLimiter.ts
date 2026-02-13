@@ -362,3 +362,179 @@ export class InMemoryRateLimiter implements IRateLimiter {
     return this.check(key);
   }
 }
+
+/**
+ * 主限流器类 - 支持Redis降级到内存限流
+ */
+export class RateLimiter implements IRateLimiter {
+  private redis: Redis | null = null;
+  private inMemoryLimiter: InMemoryRateLimiter;
+  private config: RateLimitConfig;
+  private useInMemory: boolean = false;
+  private keyPrefix: string;
+  private redisCheckInterval: NodeJS.Timeout | null = null;
+
+  constructor(config: RateLimitConfig) {
+    this.config = config;
+    this.keyPrefix = config.redis?.keyPrefix || 'ratelimit';
+    
+    // 初始化内存限流器作为降级方案
+    this.inMemoryLimiter = new InMemoryRateLimiter(config);
+    
+    // 尝试连接Redis
+    if (config.redis) {
+      this.connectRedis();
+    } else {
+      this.useInMemory = true;
+      console.log('[RateLimiter] No Redis config, using in-memory rate limiter');
+    }
+  }
+
+  /**
+   * 连接到Redis
+   */
+  private connectRedis(): void {
+    if (!this.config.redis) {
+      this.useInMemory = true;
+      return;
+    }
+
+    try {
+      this.redis = new Redis({
+        host: this.config.redis.host,
+        port: this.config.redis.port,
+        password: this.config.redis.password,
+        db: this.config.redis.db || 0,
+        retryStrategy: (times) => {
+          if (times > 3) {
+            console.warn('[RateLimiter] Redis connection failed, falling back to in-memory');
+            this.useInMemory = true;
+            return null; // 停止重试
+          }
+          return Math.min(times * 200, 2000);
+        },
+        maxRetriesPerRequest: 1,
+      });
+
+      this.redis.on('error', (err) => {
+        console.error('[RateLimiter] Redis error:', err.message);
+        this.useInMemory = true;
+      });
+
+      this.redis.on('connect', () => {
+        console.log('[RateLimiter] Redis connected successfully');
+        this.useInMemory = false;
+        
+        // 启动定期检查Redis连接
+        this.startHealthCheck();
+      });
+    } catch (error) {
+      console.warn('[RateLimiter] Failed to create Redis connection, using in-memory:', error);
+      this.useInMemory = true;
+    }
+  }
+
+  /**
+   * 启动Redis健康检查
+   */
+  private startHealthCheck(): void {
+    if (this.redisCheckInterval) {
+      clearInterval(this.redisCheckInterval);
+    }
+    
+    // 每30秒检查一次Redis连接
+    this.redisCheckInterval = setInterval(async () => {
+      if (!this.redis || this.useInMemory) return;
+      
+      try {
+        await this.redis.ping();
+      } catch (error) {
+        console.warn('[RateLimiter] Redis health check failed, switching to in-memory');
+        this.useInMemory = true;
+      }
+    }, 30000);
+  }
+
+  /**
+   * 检查是否使用Redis
+   */
+  isUsingRedis(): boolean {
+    return !this.useInMemory && this.redis !== null;
+  }
+
+  /**
+   * 检查请求是否允许通过
+   */
+  async check(key: string): Promise<RateLimitResult> {
+    if (this.useInMemory || !this.redis) {
+      return this.inMemoryLimiter.check(key);
+    }
+
+    try {
+      const limiter = DistributedRateLimiterFactory.create(this.config, this.redis, this.keyPrefix);
+      return await limiter.check(key);
+    } catch (error) {
+      console.warn('[RateLimiter] Redis check failed, falling back to in-memory:', error);
+      this.useInMemory = true;
+      return this.inMemoryLimiter.check(key);
+    }
+  }
+
+  /**
+   * 消耗一个请求
+   */
+  async consume(key: string): Promise<RateLimitResult> {
+    if (this.useInMemory || !this.redis) {
+      return this.inMemoryLimiter.consume(key);
+    }
+
+    try {
+      const limiter = DistributedRateLimiterFactory.create(this.config, this.redis, this.keyPrefix);
+      return await limiter.consume(key);
+    } catch (error) {
+      console.warn('[RateLimiter] Redis consume failed, falling back to in-memory:', error);
+      this.useInMemory = true;
+      return this.inMemoryLimiter.consume(key);
+    }
+  }
+
+  /**
+   * 重置限流计数器
+   */
+  async reset(key: string): Promise<void> {
+    if (this.useInMemory || !this.redis) {
+      return this.inMemoryLimiter.reset(key);
+    }
+
+    try {
+      const limiter = DistributedRateLimiterFactory.create(this.config, this.redis, this.keyPrefix);
+      return await limiter.reset(key);
+    } catch (error) {
+      console.warn('[RateLimiter] Redis reset failed, falling back to in-memory:', error);
+      this.useInMemory = true;
+      return this.inMemoryLimiter.reset(key);
+    }
+  }
+
+  /**
+   * 获取当前限流状态
+   */
+  async getStatus(key: string): Promise<RateLimitResult> {
+    return this.check(key);
+  }
+
+  /**
+   * 关闭连接
+   */
+  async close(): Promise<void> {
+    if (this.redisCheckInterval) {
+      clearInterval(this.redisCheckInterval);
+      this.redisCheckInterval = null;
+    }
+    
+    if (this.redis) {
+      await this.redis.quit();
+      this.redis = null;
+    }
+  }
+}
