@@ -290,4 +290,3 @@ export default fp(securityPlugin, {
   fastify: '4.x',
 });
 
-export { SecurityMiddleware, SecurityMiddlewareConfig, SecurityHeadersConfig, SecurityCorsConfig };
