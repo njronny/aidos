@@ -52,6 +52,7 @@ export class MetricsService {
     this.createMetric(CoreMetricName.API_REQUEST_COUNT, MetricType.COUNTER, 'count');
     this.createMetric(CoreMetricName.API_RESPONSE_TIME, MetricType.HISTOGRAM, 'ms');
     this.createMetric(CoreMetricName.API_ERROR_RATE, MetricType.GAUGE, 'percent');
+    this.createMetric(CoreMetricName.API_ERROR_COUNT, MetricType.COUNTER, 'count');
 
     // Agent metrics
     this.createMetric(CoreMetricName.AGENT_ACTIVE_COUNT, MetricType.GAUGE, 'count');
@@ -261,7 +262,7 @@ export class MetricsService {
    * API错误计数
    */
   incrementApiError(): void {
-    this.incrementCounter(CoreMetricName.API_ERROR_RATE);
+    this.incrementCounter(CoreMetricName.API_ERROR_COUNT);
   }
 
   /**
@@ -277,8 +278,8 @@ export class MetricsService {
    */
   private updateApiErrorRate(): void {
     const requestCount = this.getValue(CoreMetricName.API_REQUEST_COUNT);
-    // 简化计算：使用最近的错误计数作为近似
-    const errorRate = requestCount > 0 ? 0 : 0; // 需要单独跟踪错误计数
+    const errorCount = this.getValue(CoreMetricName.API_ERROR_COUNT);
+    const errorRate = requestCount > 0 ? (errorCount / requestCount) * 100 : 0;
     this.setGauge(CoreMetricName.API_ERROR_RATE, errorRate);
   }
 
@@ -314,6 +315,7 @@ export class MetricsService {
       },
       apiMetrics: {
         requestCount: this.getValue(CoreMetricName.API_REQUEST_COUNT),
+        errorCount: this.getValue(CoreMetricName.API_ERROR_COUNT),
         avgResponseTime: this.getAverage(CoreMetricName.API_RESPONSE_TIME),
         errorRate: this.getValue(CoreMetricName.API_ERROR_RATE),
       },

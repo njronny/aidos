@@ -29,6 +29,7 @@ export enum CoreMetricName {
   API_REQUEST_COUNT = 'api_request_count',
   API_RESPONSE_TIME = 'api_response_time',
   API_ERROR_RATE = 'api_error_rate',
+  API_ERROR_COUNT = 'api_error_count',
   
   // Agent metrics
   AGENT_ACTIVE_COUNT = 'agent_active_count',
@@ -139,6 +140,7 @@ export interface MetricsSummary {
   };
   apiMetrics: {
     requestCount: number;
+    errorCount: number;
     avgResponseTime: number;
     errorRate: number;
   };

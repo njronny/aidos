@@ -250,6 +250,45 @@ describe('MetricsService', () => {
       service.recordApiResponseTime(250);
       expect(service.getValue(CoreMetricName.API_RESPONSE_TIME)).toBe(250);
     });
+
+    it('should increment API error count', () => {
+      service.incrementApiError();
+      service.incrementApiError();
+      expect(service.getValue(CoreMetricName.API_ERROR_COUNT)).toBe(2);
+    });
+
+    it('should calculate API error rate correctly', () => {
+      // Record successful requests
+      service.incrementApiRequest();
+      service.incrementApiRequest();
+      service.incrementApiRequest();
+      service.incrementApiRequest();
+      
+      // Record errors
+      service.incrementApiError();
+      service.incrementApiError();
+      
+      // Update error rate by recording a response (triggers updateApiErrorRate)
+      service.recordApiResponseTime(100);
+      
+      // Error rate = 2 errors / 4 requests * 100 = 50%
+      expect(service.getValue(CoreMetricName.API_ERROR_RATE)).toBe(50);
+    });
+
+    it('should have 0 error rate when no errors', () => {
+      service.incrementApiRequest();
+      service.recordApiResponseTime(100);
+      
+      expect(service.getValue(CoreMetricName.API_ERROR_RATE)).toBe(0);
+    });
+
+    it('should have 0 error rate when no requests', () => {
+      service.incrementApiError();
+      service.recordApiResponseTime(100);
+      
+      // No requests, so error rate should be 0 (not division by zero)
+      expect(service.getValue(CoreMetricName.API_ERROR_RATE)).toBe(0);
+    });
   });
 
   describe('agent metrics', () => {
@@ -279,6 +318,8 @@ describe('MetricsService', () => {
       service.recordTaskComplete(true, 1000);
       service.setQueueDepth(10);
       service.incrementApiRequest();
+      service.incrementApiError();
+      service.recordApiResponseTime(100);
       service.setAgentCounts(2, 3);
 
       const summary = service.getMetricsSummary();
@@ -286,6 +327,8 @@ describe('MetricsService', () => {
       expect(summary.taskMetrics.totalTasks).toBe(1);
       expect(summary.queueMetrics.depth).toBe(10);
       expect(summary.apiMetrics.requestCount).toBe(1);
+      expect(summary.apiMetrics.errorCount).toBe(1);
+      expect(summary.apiMetrics.errorRate).toBe(100);
       expect(summary.agentMetrics.active).toBe(2);
       expect(summary.agentMetrics.idle).toBe(3);
     });

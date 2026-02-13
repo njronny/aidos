@@ -184,6 +184,7 @@ export class AgentPool {
 
   /**
    * 查找可以处理任务的代理
+   * @returns 可用的Agent实例，如果没有可用代理则返回null
    */
   findAvailableAgent(taskType: string, preferredType?: AgentType): Agent | null {
     const matchingType = this.mapTaskTypeToAgentType(taskType);
@@ -211,6 +212,25 @@ export class AgentPool {
       }
     }
 
+    // 尝试fallback: 查找任意空闲代理（不管类型是否匹配）
+    if (this.config.fallbackEnabled) {
+      return this.findAnyIdleAgent();
+    }
+
+    return null;
+  }
+
+  /**
+   * 查找任意空闲代理（作为最后的fallback）
+   * @returns 任意空闲的Agent，如果没有则返回null
+   */
+  private findAnyIdleAgent(): Agent | null {
+    for (const agents of this.agents.values()) {
+      const idleAgent = agents.find(a => a.status === AgentStatus.IDLE);
+      if (idleAgent) {
+        return idleAgent;
+      }
+    }
     return null;
   }
 
