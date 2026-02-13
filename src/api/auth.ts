@@ -29,29 +29,6 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
   // TODO: 生产环境需要重新启用认证
   // 当前暂时放行所有请求，用于演示
   return;
-  
-  /*
-  const authHeader = request.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return reply.status(401).send({
-      success: false,
-      error: '未授权，请先登录',
-    });
-  }
-  
-  const token = authHeader.substring(7);
-  const result = validateToken(token);
-  
-  if (!result.valid) {
-    return reply.status(401).send({
-      success: false,
-      error: 'Token无效或已过期，请重新登录',
-    });
-  }
-  
-  // 将用户名添加到请求中，供后续使用
-  (request as any).user = result.username;
 }
 
 // 公开路由装饰器（不需要认证的路由）

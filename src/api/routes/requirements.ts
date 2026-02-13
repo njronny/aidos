@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dataStore } from '../store';
 import { Requirement, CreateRequirementDto, UpdateRequirementDto, QueryParams } from '../types';
+import { getWorkflowService } from '../../core/workflow';
 
 function paginateItems<T>(items: T[], page: number, limit: number) {
   const start = (page - 1) * limit;
@@ -62,7 +63,24 @@ export async function requirementRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ success: false, error: '项目ID和标题不能为空' });
     }
     const requirement = dataStore.createRequirement({ projectId, title, description, priority });
-    return reply.status(201).send({ success: true, data: requirement });
+
+    // 自动触发工作流
+    try {
+      const workflowService = getWorkflowService();
+      const workflow = await workflowService.processRequirement(requirement);
+      return reply.status(201).send({
+        success: true,
+        data: requirement,
+        workflow: {
+          id: workflow.id,
+          taskCount: workflow.tasks.length,
+          status: workflow.status,
+        }
+      });
+    } catch (error) {
+      console.error('Workflow trigger error:', error);
+      return reply.status(201).send({ success: true, data: requirement });
+    }
   });
 
   // PUT /requirements/:id - 更新需求

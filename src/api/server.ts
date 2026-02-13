@@ -6,6 +6,8 @@ import { requirementRoutes } from './routes/requirements';
 import { taskRoutes } from './routes/tasks';
 import { agentRoutes } from './routes/agents';
 import { publicRoute, authMiddleware } from './auth';
+import { getWorkflowService } from '../core/workflow';
+import { dataStore } from './store';
 
 const fastify = Fastify({
   logger: {
@@ -97,9 +99,54 @@ async function startServer() {
           requirements: '/api/requirements',
           tasks: '/api/tasks',
           agents: '/api/agents',
+          workflows: '/api/workflows',
           websocket: '/ws',
         },
       };
+    });
+
+    // Workflow routes - 工作流路由
+    const workflowService = getWorkflowService();
+
+    // GET /api/workflows - 获取所有工作流
+    fastify.get('/api/workflows', async (request, reply) => {
+      const workflows = workflowService.getAllWorkflows();
+      return reply.send({ success: true, data: workflows });
+    });
+
+    // GET /api/workflows/:requirementId - 获取需求对应的工作流
+    fastify.get('/api/workflows/:requirementId', async (request, reply) => {
+      const { requirementId } = request.params as { requirementId: string };
+      const workflow = workflowService.getWorkflow(requirementId);
+      if (!workflow) {
+        return reply.status(404).send({ success: false, error: '工作流不存在' });
+      }
+      return reply.send({ success: true, data: workflow });
+    });
+
+    // GET /api/workflows-status - 获取工作流状态
+    fastify.get('/api/workflows-status', async (request, reply) => {
+      const status = {
+        workflow: workflowService.getWorkflowStatus(),
+        executor: workflowService.getExecutorStatus(),
+      };
+      return reply.send({ success: true, data: status });
+    });
+
+    // POST /api/workflows/trigger - 手动触发工作流
+    fastify.post('/api/workflows/trigger', async (request, reply) => {
+      const { requirementId } = request.body as { requirementId: string };
+      if (!requirementId) {
+        return reply.status(400).send({ success: false, error: '需求ID不能为空' });
+      }
+
+      const requirement = dataStore.getRequirementById(requirementId);
+      if (!requirement) {
+        return reply.status(404).send({ success: false, error: '需求不存在' });
+      }
+
+      const workflow = await workflowService.processRequirement(requirement);
+      return reply.send({ success: true, data: workflow });
     });
 
     // Error handler
