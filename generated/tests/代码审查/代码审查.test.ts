@@ -14,7 +14,7 @@ describe('代码审查', () => {
     it('should 代码审查 successfully', async () => {
       // Arrange
       const input = {
-        id: 'cc25218e-a7d0-4414-a16d-6a39b9e6aa69',
+        id: '6e81fd1c-f6e6-4cb3-9a5e-2bb5fd43e024',
         name: '代码审查',
       };
 

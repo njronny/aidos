@@ -14,7 +14,7 @@ describe('编写测试用例', () => {
     it('should 编写测试用例 successfully', async () => {
       // Arrange
       const input = {
-        id: '059effc3-059c-492d-8d68-670ab623a3b7',
+        id: 'a30ba797-d133-4836-a330-3c0749cacfd8',
         name: '编写测试用例',
       };
 

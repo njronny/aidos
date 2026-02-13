@@ -33,8 +33,8 @@ function toApiRequirement(r: any): Requirement {
     description: r.content,
     priority: r.priority,
     status: r.status === 'analyzing' ? 'in_progress' : r.status === 'analyzed' ? 'completed' : r.status === 'rejected' ? 'rejected' : 'pending',
-    createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-    updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
+    createdAt: r.createdAt ? r.createdAt ? new Date(Number(r.createdAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
+    updatedAt: r.updatedAt ? r.updatedAt ? new Date(Number(r.updatedAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
   };
 }
 
@@ -57,8 +57,8 @@ function toApiTask(t: any): Task {
     description: t.description,
     status: t.status === 'running' ? 'in_progress' : t.status === 'assigned' ? 'assigned' : t.status,
     result: t.result ? JSON.stringify(t.result) : undefined,
-    createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
-    updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
+    createdAt: t.createdAt ? t.createdAt ? new Date(Number(t.createdAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
+    updatedAt: t.updatedAt ? t.updatedAt ? new Date(Number(t.updatedAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
   };
 }
 
@@ -82,8 +82,8 @@ function toApiAgent(a: any): Agent {
     status: a.status,
     capabilities: a.capabilities,
     currentTaskId: a.currentTaskId,
-    createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
-    updatedAt: a.updatedAt ? new Date(a.updatedAt).toISOString() : new Date().toISOString(),
+    createdAt: a.createdAt ? a.createdAt ? new Date(Number(a.createdAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
+    updatedAt: a.updatedAt ? a.updatedAt ? new Date(Number(a.updatedAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
   };
 }
 
