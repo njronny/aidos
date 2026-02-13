@@ -295,7 +295,9 @@
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('Failed to create project. Make sure API is running.');
+        const errorMsg = 'Failed to create project. Error: ' + (error.message || JSON.stringify(error));
+        alert(errorMsg);
+        Log.add('error', errorMsg);
       }
     }
 

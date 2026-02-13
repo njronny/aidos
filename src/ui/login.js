@@ -24,7 +24,7 @@ const Login = {
   // Login function
   async login(username, password) {
     try {
-      const response = await fetch(`${API_URL_FOR_ALL}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ const Login = {
     try {
       const token = this.getToken();
       if (token) {
-        await fetch(`${API_URL_FOR_ALL}/api/auth/logout`, {
+        await fetch(`${API_URL}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -91,7 +91,7 @@ const Login = {
     }
 
     try {
-      const response = await fetch(`${API_URL_FOR_ALL}/api/auth/verify`, {
+      const response = await fetch(`${API_URL}/api/auth/verify`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
