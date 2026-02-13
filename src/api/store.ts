@@ -20,8 +20,8 @@ function toApiProject(p: any): Project {
     name: p.name,
     description: p.description,
     status: p.status,
-    createdAt: String(p.createdAt || ""),
-    updatedAt: String(p.updatedAt || ""),
+    createdAt: p.createdAt ? p.createdAt ? new Date(Number(p.createdAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
+    updatedAt: p.updatedAt ? p.updatedAt ? new Date(Number(p.updatedAt) || Date.now()).toISOString() : new Date().toISOString() : new Date().toISOString(),
   };
 }
 
@@ -33,8 +33,8 @@ function toApiRequirement(r: any): Requirement {
     description: r.content,
     priority: r.priority,
     status: r.status === 'analyzing' ? 'in_progress' : r.status === 'analyzed' ? 'completed' : r.status === 'rejected' ? 'rejected' : 'pending',
-    createdAt: String(r.createdAt || ""),
-    updatedAt: String(r.updatedAt || ""),
+    createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : new Date().toISOString(),
   };
 }
 
@@ -57,8 +57,8 @@ function toApiTask(t: any): Task {
     description: t.description,
     status: t.status === 'running' ? 'in_progress' : t.status === 'assigned' ? 'assigned' : t.status,
     result: t.result ? JSON.stringify(t.result) : undefined,
-    createdAt: String(t.createdAt || ""),
-    updatedAt: String(t.updatedAt || ""),
+    createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString(),
   };
 }
 
@@ -82,8 +82,8 @@ function toApiAgent(a: any): Agent {
     status: a.status,
     capabilities: a.capabilities,
     currentTaskId: a.currentTaskId,
-    createdAt: String(a.createdAt || ""),
-    updatedAt: String(a.updatedAt || ""),
+    createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: a.updatedAt ? new Date(a.updatedAt).toISOString() : new Date().toISOString(),
   };
 }
 
