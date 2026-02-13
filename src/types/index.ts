@@ -4,7 +4,7 @@ export enum TaskStatus {
   RUNNING = 'running',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  BLOCKED = 'blocked'
+  BLOCKED = 'blocked',
 }
 
 // Task priority levels
@@ -12,7 +12,7 @@ export enum TaskPriority {
   LOW = 0,
   NORMAL = 1,
   HIGH = 2,
-  CRITICAL = 3
+  CRITICAL = 3,
 }
 
 // Task interface
@@ -58,7 +58,7 @@ export interface SchedulerConfig {
 
 // Scheduler events
 export interface SchedulerEvent {
-  type: 'task_started' | 'task_completed' | 'task_failed' | 'task_blocked' | 'scheduler_idle';
+  type: 'task_started' | 'task_completed' | 'task_failed' | 'task_blocked' | 'task_retry_scheduled' | 'scheduler_idle';
   taskId?: string;
   timestamp: Date;
   data?: unknown;
