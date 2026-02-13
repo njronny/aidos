@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIDOS - AI DevOps System</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">🤖 AIDOS</h1>
+        <span class="subtitle">AI DevOps System</span>
+      </div>
+      <div class="header-right">
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Connecting...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Dashboard Section -->
+      <section class="panel dashboard-panel">
+        <div class="panel-header">
+          <h2>📊 Dashboard</h2>
+        </div>
+        <div class="panel-content">
+          <div class="metrics-grid" id="metricsGrid">
+            <!-- Metrics will be populated by dashboard.js -->
+            <div class="metric-card">
+              <div class="metric-label">Total Tasks</div>
+              <div class="metric-value" id="totalTasks">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Completed</div>
+              <div class="metric-value metric-success" id="completedTasks">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Running</div>
+              <div class="metric-value metric-running" id="runningTasks">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Failed</div>
+              <div class="metric-value metric-failed" id="failedTasks">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Pending</div>
+              <div class="metric-value" id="pendingTasks">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Progress</div>
+              <div class="metric-value" id="progressPercent">-</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Flowchart Section -->
+      <section class="panel flowchart-panel">
+        <div class="panel-header">
+          <h2>🔄 Flowchart</h2>
+          <button class="btn-refresh" onclick="Flowchart.refresh()">Refresh</button>
+        </div>
+        <div class="panel-content">
+          <div class="mermaid" id="flowchart"></div>
+        </div>
+      </section>
+
+      <!-- Task List Section -->
+      <section class="panel tasklist-panel">
+        <div class="panel-header">
+          <h2>📋 Task List</h2>
+        </div>
+        <div class="panel-content">
+          <div class="task-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="pending">Pending</button>
+            <button class="filter-btn" data-filter="running">Running</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+            <button class="filter-btn" data-filter="failed">Failed</button>
+          </div>
+          <div class="task-list" id="taskList">
+            <!-- Tasks will be populated by tasklist.js -->
+            <div class="empty-state">No tasks yet</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Log Section -->
+      <section class="panel log-panel">
+        <div class="panel-header">
+          <h2>📝 Execution Logs</h2>
+          <button class="btn-clear" onclick="Log.clear()">Clear</button>
+        </div>
+        <div class="panel-content">
+          <div class="log-container" id="logContainer">
+            <!-- Logs will be populated by log.js -->
+            <div class="log-entry log-info">System initialized</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>AIDOS v1.0.0</span>
+      <span class="separator">|</span>
+      <span id="lastUpdate">Last update: --</span>
+    </footer>
+  </div>
+
+  <!-- Scripts -->
+  <script src="dashboard.js"></script>
+  <script src="flowchart.js"></script>
+  <script src="tasklist.js"></script>
+  <script src="log.js"></script>
+  <script src="websocket.js"></script>
+  <script>
+    // Initialize Mermaid
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'dark',
+      themeVariables: {
+        primaryColor: '#3b82f6',
+        primaryTextColor: '#e5e7eb',
+        primaryBorderColor: '#3b82f6',
+        lineColor: '#6b7280',
+        secondaryColor: '#10b981',
+        tertiaryColor: '#1f2937',
+        background: '#111827',
+        mainBkg: '#1f2937',
+        nodeBorder: '#3b82f6',
+        clusterBkg: '#1f2937',
+        clusterBorder: '#374151',
+        titleColor: '#e5e7eb',
+        edgeLabelBackground: '#1f2937',
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 20,
+      },
+    });
+
+    // Global WebSocket connection
+    let ws = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000;
+
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      // For demo, use a mock if no WebSocket server
+      try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+          console.log('WebSocket connected');
+          updateConnectionStatus('connected');
+          reconnectAttempts = 0;
+        };
+        
+        ws.onmessage = function(event) {
+          try {
+            const message = JSON.parse(event.data);
+            handleWebSocketMessage(message);
+          } catch (e) {
+            console.error('Failed to parse WebSocket message:', e);
+          }
+        };
+        
+        ws.onclose = function() {
+          updateConnectionStatus('disconnected');
+          attemptReconnect();
+        };
+        
+        ws.onerror = function(error) {
+          console.error('WebSocket error:', error);
+          updateConnectionStatus('error');
+        };
+      } catch (e) {
+        console.log('WebSocket not available, using mock mode');
+        updateConnectionStatus('mock');
+        startMockUpdates();
+      }
+    }
+
+    function updateConnectionStatus(status) {
+      const statusEl = document.getElementById('connectionStatus');
+      const dot = statusEl.querySelector('.status-dot');
+      const text = statusEl.querySelector('.status-text');
+      
+      statusEl.className = 'connection-status status-' + status;
+      
+      switch(status) {
+        case 'connected':
+          dot.style.backgroundColor = '#10b981';
+          text.textContent = 'Connected';
+          break;
+        case 'disconnected':
+          dot.style.backgroundColor = '#ef4444';
+          text.textContent = 'Disconnected';
+          break;
+        case 'error':
+          dot.style.backgroundColor = '#f59e0b';
+          text.textContent = 'Error';
+          break;
+        case 'mock':
+          dot.style.backgroundColor = '#6b7280';
+          text.textContent = 'Mock Mode';
+          break;
+        default:
+          dot.style.backgroundColor = '#6b7280';
+          text.textContent = 'Connecting...';
+      }
+    }
+
+    function attemptReconnect() {
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++;
+        console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
+        setTimeout(connectWebSocket, reconnectDelay);
+      } else {
+        console.log('Max reconnection attempts reached, switching to mock mode');
+        updateConnectionStatus('mock');
+        startMockUpdates();
+      }
+    }
+
+    function handleWebSocketMessage(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      
+      switch(message.type) {
+        case 'task_update':
+          TaskList.updateTask(message.data);
+          Dashboard.update();
+          Flowchart.refresh();
+          Log.add({
+            time: timestamp,
+            level: 'info',
+            message: `Task ${message.data.name} status: ${message.data.status}`
+          });
+          break;
+          
+        case 'tasks_update':
+          TaskList.setTasks(message.data);
+          Dashboard.update();
+          Flowchart.refresh();
+          break;
+          
+        case 'metrics_update':
+          Dashboard.updateMetrics(message.data);
+          break;
+          
+        case 'log':
+          Log.add({
+            time: timestamp,
+            level: message.level || 'info',
+            message: message.message
+          });
+          break;
+          
+        case 'flowchart_update':
+          Flowchart.update(message.data);
+          break;
+          
+        default:
+          console.log('Unknown message type:', message.type);
+      }
+      
+      document.getElementById('lastUpdate').textContent = `Last update: ${timestamp}`;
+    }
+
+    // Mock data for demo
+    let mockUpdateInterval = null;
+
+    function startMockUpdates() {
+      // Initialize with mock data
+      const mockTasks = [
+        { id: 'task1', name: 'Setup Project Structure', status: 'completed', dependencies: [] },
+        { id: 'task2', name: 'Implement Analyzer', status: 'completed', dependencies: ['task1'] },
+        { id: 'task3', name: 'Implement Scheduler', status: 'running', dependencies: ['task1'] },
+        { id: 'task4', name: 'Integration Tests', status: 'pending', dependencies: ['task2', 'task3'] },
+        { id: 'task5', name: 'Build Documentation', status: 'pending', dependencies: ['task4'] },
+        { id: 'task6', name: 'Deploy to Production', status: 'pending', dependencies: ['task4'] },
+      ];
+      
+      TaskList.setTasks(mockTasks);
+      Dashboard.update();
+      Flowchart.refresh();
+      
+      Log.add({ time: new Date().toLocaleTimeString(), level: 'info', message: 'Mock data loaded' });
+      
+      // Simulate periodic updates
+      mockUpdateInterval = setInterval(() => {
+        const tasks = TaskList.getTasks();
+        const runningTask = tasks.find(t => t.status === 'running');
+        
+        if (runningTask) {
+          // Complete the running task
+          const completedIdx = tasks.findIndex(t => t.id === runningTask.id);
+          tasks[completedIdx].status = 'completed';
+          
+          // Start a pending task
+          const pendingTask = tasks.find(t => t.status === 'pending' && 
+            t.dependencies.every(dep => tasks.find(ot => ot.id === dep && ot.status === 'completed')));
+          
+          if (pendingTask) {
+            const pendingIdx = tasks.findIndex(t => t.id === pendingTask.id);
+            tasks[pendingIdx].status = 'running';
+          }
+          
+          TaskList.setTasks(tasks);
+          Dashboard.update();
+          Flowchart.refresh();
+        }
+      }, 5000);
+    }
+
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        TaskList.filter(btn.dataset.filter);
+      });
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      connectWebSocket();
+      Log.add({ time: new Date().toLocaleTimeString(), level: 'info', message: 'UI initialized' });
+    });
+  </script>
+</body>
+</html>
