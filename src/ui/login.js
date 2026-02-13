@@ -241,17 +241,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Override fetch for API calls to include auth
-const originalFetch = window.fetch;
-window.fetch = async function(url, options = {}) {
-  if (typeof url === 'string' && url.startsWith(API_URL) && !url.includes('/auth/')) {
-    const token = Login.getToken();
-    if (token) {
-      options.headers = {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-      };
-    }
-  }
-  return originalFetch(url, options);
-};
+// TODO: 暂时禁用 fetch 覆盖用于调试
+// const originalFetch = window.fetch;
+// window.fetch = async function(url, options = {}) {
+//   if (typeof url === 'string' && url.startsWith(API_URL) && !url.includes('/auth/')) {
+//     const token = Login.getToken();
+//     if (token) {
+//       options.headers = {
+//         ...options.headers,
+//         'Authorization': `Bearer ${token}`,
+//       };
+//     }
+//   }
+//   return originalFetch(url, options);
+// };
