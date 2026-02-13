@@ -3,6 +3,10 @@
   window.Login = {
     tokenKey: 'aidos_auth_token',
     
+    isLoggedIn: function() {
+      return !!localStorage.getItem(this.tokenKey);
+    },
+    
     login: function(username, password) {
       if (username === 'admin' && password === 'aidos123') {
         localStorage.setItem(this.tokenKey, 'demo_token_123');
@@ -25,10 +29,19 @@
       // 加载数据
       if (typeof Dashboard !== 'undefined' && Dashboard.refresh) Dashboard.refresh();
       if (typeof loadProjects === 'function') loadProjects();
+    },
+    
+    checkLogin: function() {
+      if (this.isLoggedIn()) {
+        this.showMainApp();
+      }
     }
   };
   
   document.addEventListener('DOMContentLoaded', function() {
+    // 检查是否已登录
+    Login.checkLogin();
+    
     var form = document.getElementById('loginForm');
     if (form) {
       form.addEventListener('submit', function(e) {
