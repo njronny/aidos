@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: ESLint 检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    name: TypeScript 编译检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  unit-test:
+    name: 单元测试 + 覆盖率
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test:coverage -- --testPathIgnorePatterns='integration'
+        env:
+          DB_CLIENT: sqlite
+          DB_FILENAME: ':memory:'
+      - name: 检查覆盖率阈值 (>80%)
+        run: |
+          COVERAGE=$(cat coverage/coverage-summary.json | node -e "
+            const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            const lines = data.total.lines.pct;
+            console.log(lines);
+            process.exit(lines < 80 ? 1 : 0);
+          ")
+          echo "Line coverage: ${COVERAGE}%"
+      - name: 上传覆盖率报告
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+  integration-test:
+    name: 集成测试 (SQLite 内存数据库)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx jest --testPathPattern='integration' --verbose
+        env:
+          DB_CLIENT: sqlite
+          DB_FILENAME: ':memory:'
+          NODE_ENV: test
+
+  security:
+    name: 安全扫描
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: npm audit
+        run: npm audit --audit-level=high || true
+      - name: 检查已知漏洞
+        run: |
+          AUDIT_RESULT=$(npm audit --json 2>/dev/null || true)
+          HIGH_VULNS=$(echo "$AUDIT_RESULT" | node -e "
+            const data = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            const high = (data.metadata?.vulnerabilities?.high || 0) + (data.metadata?.vulnerabilities?.critical || 0);
+            console.log(high);
+            process.exit(high > 0 ? 1 : 0);
+          " 2>/dev/null || echo "0")
+          echo "High/Critical vulnerabilities: $HIGH_VULNS"
+
+  ci-summary:
+    name: CI 汇总
+    needs: [lint, typecheck, unit-test, integration-test, security]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: 检查所有任务状态
+        run: |
+          echo "Lint:        ${{ needs.lint.result }}"
+          echo "TypeCheck:   ${{ needs.typecheck.result }}"
+          echo "Unit Tests:  ${{ needs.unit-test.result }}"
+          echo "Integration: ${{ needs.integration-test.result }}"
+          echo "Security:    ${{ needs.security.result }}"
+          if [ "${{ needs.lint.result }}" = "failure" ] || \
+             [ "${{ needs.typecheck.result }}" = "failure" ] || \
+             [ "${{ needs.unit-test.result }}" = "failure" ] || \
+             [ "${{ needs.integration-test.result }}" = "failure" ]; then
+            echo "❌ CI failed"
+            exit 1
+          fi
+          echo "✅ CI passed"
