@@ -240,6 +240,10 @@
       document.getElementById('newRequirementModal').classList.remove('active');
     }
 
+    // API URL 必须在这里定义（在函数之前）
+    var API_URL = 'http://127.0.0.1:3000';
+    var API_URL_FOR_ALL = API_URL;
+
     async function submitRequirement() {
       const projectName = document.getElementById('projectName').value.trim();
       const projectDesc = document.getElementById('projectDesc').value.trim();
@@ -294,10 +298,6 @@
         alert('Failed to create project. Make sure API is running.');
       }
     }
-
-    // API Base URL - 使用本机IP（内网调用）
-    const API_URL = 'http://127.0.0.1:3000';
-    var API_URL_FOR_ALL = API_URL;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
