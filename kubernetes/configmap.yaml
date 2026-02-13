@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aidos-config
+  namespace: aidos
+  labels:
+    app: aidos
+    version: v1
+data:
+  # 应用配置
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  API_PORT: "3000"
+  
+  # 数据库配置 (SQLite 路径)
+  DATABASE_URL: "/app/data/aidos.db"
+  
+  # CORS 配置
+  CORS_ORIGIN: "*"
+  
+  # 健康检查路径
+  HEALTH_CHECK_PATH: "/health"
+  
+  # 时区
+  TZ: "UTC"

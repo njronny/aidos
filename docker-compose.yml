@@ -1,0 +1,46 @@
+version: '3.8'
+
+# ============================================
+# Aidos 本地开发环境
+# 使用 SQLite 作为数据库
+# ============================================
+
+services:
+  # Aidos API 服务
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aidos-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL:-./data/aidos.db}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - API_HOST=0.0.0.0
+      - API_PORT=3000
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - aidos-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # 开发环境使用 tty 方便调试
+    stdin_open: true
+    tty: true
+
+networks:
+  aidos-network:
+    driver: bridge
+
+# 启动命令:
+# docker-compose up -d      # 后台启动
+# docker-compose up        # 前台启动
+# docker-compose logs -f    # 查看日志
