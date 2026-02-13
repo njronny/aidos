@@ -1,5 +1,6 @@
 // Login functionality
-const API_URL = 'http://' + window.location.hostname + ':3000';
+const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+const API_URL = 'http://' + hostname + ':3000';
 const Login = {
   tokenKey: 'aidos_auth_token',
   userKey: 'aidos_user',

@@ -295,11 +295,10 @@
       }
     }
 
-    // API Base URL
-    // 动态获取API地址
-    const API_BASE = window.location.hostname + ':3000';
-    const API_URL = 'http://' + API_BASE;
-    // 兼容：所有API调用使用动态地址
+    // API Base URL - 使用正确的动态获取方式
+    const hostname = window.location.hostname;
+    const API_URL = 'http://' + hostname + ':3000';
+    // 保存到全局变量供其他JS使用
     var API_URL_FOR_ALL = API_URL;
 
     // Initialize
