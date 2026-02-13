@@ -12,7 +12,7 @@ import { EmailService } from '../../integrations/notification/EmailService';
 import { DingTalkService } from '../../integrations/notification/DingTalkService';
 import { SlackService } from '../../integrations/notification/SlackService';
 import { TemplateManager } from '../../integrations/notification/TemplateManager';
-import { UnifiedMessage } from '../../integrations/notification/types';
+import { UnifiedMessage } from './types';
 
 /**
  * Notifier - Message Notification Module
