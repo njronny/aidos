@@ -27,7 +27,7 @@
     var html = '';
     filtered.forEach(function(t) {
       var status = t.status || 'pending';
-      var statusIcon = status === 'completed' ? '✓' : status === 'in_progress' || status === 'running' ? '◐' : '○';
+      var statusIcon = status === 'completed' ? '✓' : status === 'in_progress' || status === 'in_progress' ? '◐' : '○';
       var statusText = status === 'in_progress' ? '进行中' : status === 'completed' ? '已完成' : status === 'failed' ? '失败' : '待处理';
       
       html += '<div class="task-item" data-id="' + t.id + '">';

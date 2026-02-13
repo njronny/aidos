@@ -110,7 +110,7 @@ const UI = (function() {
         
         document.getElementById('detailTasks').textContent = tasks.length;
         document.getElementById('detailCompleted').textContent = tasks.filter(t => t.status === 'completed').length;
-        document.getElementById('detailRunning').textContent = tasks.filter(t => t.status === 'running').length;
+        document.getElementById('detailRunning').textContent = tasks.filter(t => t.status === 'in_progress').length;
         document.getElementById('detailFailed').textContent = tasks.filter(t => t.status === 'failed').length;
       });
   }

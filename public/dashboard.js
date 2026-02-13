@@ -28,7 +28,7 @@
             if (el) el.textContent = tasks.length || 0;
             
             var completed = tasks.filter(function(t) { return t.status === 'completed'; }).length;
-            var running = tasks.filter(function(t) { return t.status === 'running'; }).length;
+            var running = tasks.filter(function(t) { return t.status === 'in_progress'; }).length;
             var failed = tasks.filter(function(t) { return t.status === 'failed'; }).length;
             var pending = tasks.filter(function(t) { return !t.status || t.status === 'pending'; }).length;
             
