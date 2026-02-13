@@ -1,54 +1,40 @@
-// Dashboard Module - Enhanced
+// Dashboard - Simplified
 (function() {
   var API_URL = '';
   
   window.Dashboard = {
     refresh: function() {
-      console.log('Dashboard refresh...');
+      fetch(API_URL + '/api/tasks').then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success && d.data) {
+          var t = d.data;
+          var total = t.length;
+          var completed = t.filter(function(x) { return x.status === 'completed'; }).length;
+          var in_progress = t.filter(function(x) { return x.status === 'in_progress'; }).length;
+          var failed = t.filter(function(x) { return x.status === 'failed'; }).length;
+          var pending = t.filter(function(x) { return !x.status || x.status === 'pending'; }).length;
+          
+          var el;
+          el = document.getElementById('totalTasks'); if(el) el.textContent = total;
+          el = document.getElementById('completedTasks'); if(el) el.textContent = completed;
+          el = document.getElementById('runningTasks'); if(el) el.textContent = in_progress;
+          el = document.getElementById('failedTasks'); if(el) el.textContent = failed;
+          el = document.getElementById('pendingTasks'); if(el) el.textContent = pending;
+          
+          var pct = total ? Math.round(completed / total * 100) : 0;
+          var fill = document.getElementById('progressFill');
+          var pctx = document.getElementById('progressPercent');
+          if(fill) fill.style.width = pct + '%';
+          if(pctx) pctx.textContent = pct + '%';
+        }
+      });
       
-      // 获取项目数据
-      fetch(API_URL + '/api/projects')
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.success && data.data) {
-            var el = document.getElementById('totalProjects');
-            if (el) el.textContent = data.data.length || 0;
-          }
-        })
-        .catch(function(e) { console.log('Dashboard error:', e); });
-      
-      // 获取任务数据
-      fetch(API_URL + '/api/tasks')
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.success && data.data) {
-            var tasks = data.data;
-            var el;
-            el = document.getElementById('totalTasks');
-            if (el) el.textContent = tasks.length || 0;
-            
-            var completed = tasks.filter(function(t) { return t.status === 'completed'; }).length;
-            var running = tasks.filter(function(t) { return t.status === 'in_progress'; }).length;
-            var failed = tasks.filter(function(t) { return t.status === 'failed'; }).length;
-            var pending = tasks.filter(function(t) { return !t.status || t.status === 'pending'; }).length;
-            
-            el = document.getElementById('completedTasks');
-            if (el) el.textContent = completed;
-            el = document.getElementById('runningTasks');
-            if (el) el.textContent = running;
-            el = document.getElementById('failedTasks');
-            if (el) el.textContent = failed;
-            el = document.getElementById('pendingTasks');
-            if (el) el.textContent = pending;
-            
-            var percent = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
-            var fill = document.getElementById('progressFill');
-            var pct = document.getElementById('progressPercent');
-            if (fill) fill.style.width = percent + '%';
-            if (pct) pct.textContent = percent + '%';
-          }
-        })
-        .catch(function(e) { console.log('Tasks error:', e); });
+      // 项目数
+      fetch(API_URL + '/api/projects').then(function(r) { return r.json(); })
+      .then(function(d) {
+        var el = document.getElementById('totalProjects');
+        if (el && d.success) el.textContent = d.data ? d.data.length : 0;
+      });
     }
   };
 })();
