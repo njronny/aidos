@@ -58,7 +58,13 @@ export interface SchedulerConfig {
 
 // Scheduler events
 export interface SchedulerEvent {
-  type: 'task_started' | 'task_completed' | 'task_failed' | 'task_blocked' | 'task_retry_scheduled' | 'scheduler_idle';
+  type:
+    | 'task_started'
+    | 'task_completed'
+    | 'task_failed'
+    | 'task_blocked'
+    | 'task_retry_scheduled'
+    | 'scheduler_idle';
   taskId?: string;
   timestamp: Date;
   data?: unknown;

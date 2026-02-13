@@ -16,7 +16,7 @@ const fixtures = {
     dependencies: [],
     maxRetries: 3,
   },
-  
+
   highPriorityTask: {
     name: '高优先级任务',
     description: '高优先级任务',
@@ -24,7 +24,7 @@ const fixtures = {
     dependencies: [],
     maxRetries: 2,
   },
-  
+
   lowPriorityTask: {
     name: '低优先级任务',
     description: '低优先级任务',
@@ -32,7 +32,7 @@ const fixtures = {
     dependencies: [],
     maxRetries: 1,
   },
-  
+
   successfulExecutor: async (task: Task): Promise<TaskResult> => {
     return {
       success: true,
@@ -40,19 +40,24 @@ const fixtures = {
       duration: 100,
     };
   },
-  
+
   failingExecutor: async (task: Task): Promise<TaskResult> => {
     throw new Error('Task execution failed');
   },
-  
+
   slowExecutor: async (task: Task): Promise<TaskResult> => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     return { success: true, output: 'Done', duration: 200 };
   },
 };
 
 // 创建测试用的调度器实例
-function createScheduler(config?: { maxConcurrentTasks?: number; taskTimeout?: number; retryDelay?: number; enableParallelExecution?: boolean }): TaskScheduler {
+function createScheduler(config?: {
+  maxConcurrentTasks?: number;
+  taskTimeout?: number;
+  retryDelay?: number;
+  enableParallelExecution?: boolean;
+}): TaskScheduler {
   return new TaskScheduler(config);
 }
 
@@ -68,7 +73,7 @@ describe('TaskScheduler 任务调度器', () => {
      * 测试用例: 任务添加基本功能
      * 编号: UT-Scheduler-001
      * 前置条件: 调度器已初始化
-     * 测试步骤: 
+     * 测试步骤:
      *   1. 调用 addTask 添加任务
      *   2. 验证返回任务ID
      *   3. 验证任务已存储
@@ -76,11 +81,11 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-001 should add task and return unique id', () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
-      
+
       expect(taskId).toBeDefined();
       expect(typeof taskId).toBe('string');
       expect(taskId.length).toBeGreaterThan(0);
-      
+
       const task = scheduler.getTask(taskId);
       expect(task).toBeDefined();
       expect(task?.name).toBe(fixtures.taskBase.name);
@@ -92,7 +97,7 @@ describe('TaskScheduler 任务调度器', () => {
      * 测试用例: 添加多个任务
      * 编号: UT-Scheduler-002
      * 前置条件: 调度器已初始化
-     * 测试步骤: 
+     * 测试步骤:
      *   1. 添加多个任务
      *   2. 验证任务数量
      * 预期结果: 所有任务都正确添加
@@ -101,13 +106,13 @@ describe('TaskScheduler 任务调度器', () => {
       const id1 = scheduler.addTask(fixtures.taskBase);
       const id2 = scheduler.addTask(fixtures.highPriorityTask);
       const id3 = scheduler.addTask(fixtures.lowPriorityTask);
-      
+
       const allTasks = scheduler.getAllTasks();
-      
+
       expect(allTasks).toHaveLength(3);
-      expect(allTasks.map(t => t.id)).toContain(id1);
-      expect(allTasks.map(t => t.id)).toContain(id2);
-      expect(allTasks.map(t => t.id)).toContain(id3);
+      expect(allTasks.map((t) => t.id)).toContain(id1);
+      expect(allTasks.map((t) => t.id)).toContain(id2);
+      expect(allTasks.map((t) => t.id)).toContain(id3);
     });
 
     /**
@@ -120,7 +125,7 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-003 should set default status to PENDING', () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.status).toBe(TaskStatus.PENDING);
     });
 
@@ -134,7 +139,7 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-004 should set default retries to 0', () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.retries).toBe(0);
     });
 
@@ -149,9 +154,9 @@ describe('TaskScheduler 任务调度器', () => {
       const beforeAdd = new Date();
       const taskId = scheduler.addTask(fixtures.taskBase);
       const afterAdd = new Date();
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.createdAt).toBeInstanceOf(Date);
       expect(task?.createdAt.getTime()).toBeGreaterThanOrEqual(beforeAdd.getTime());
       expect(task?.createdAt.getTime()).toBeLessThanOrEqual(afterAdd.getTime());
@@ -167,7 +172,7 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-006 should preserve task priority', () => {
       const taskId = scheduler.addTask(fixtures.highPriorityTask);
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.priority).toBe(TaskPriority.HIGH);
     });
 
@@ -180,7 +185,7 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-007 should return undefined for non-existent task', () => {
       const task = scheduler.getTask('non-existent-id');
-      
+
       expect(task).toBeUndefined();
     });
 
@@ -194,9 +199,9 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-008 should return all tasks', () => {
       scheduler.addTask(fixtures.taskBase);
       scheduler.addTask(fixtures.highPriorityTask);
-      
+
       const allTasks = scheduler.getAllTasks();
-      
+
       expect(allTasks).toHaveLength(2);
       expect(Array.isArray(allTasks)).toBe(true);
     });
@@ -210,7 +215,7 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-009 should have zero status initially', () => {
       const status = scheduler.getStatus();
-      
+
       expect(status.total).toBe(0);
       expect(status.pending).toBe(0);
       expect(status.running).toBe(0);
@@ -229,9 +234,9 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-010 should update status after adding tasks', () => {
       scheduler.addTask(fixtures.taskBase);
       scheduler.addTask(fixtures.highPriorityTask);
-      
+
       const status = scheduler.getStatus();
-      
+
       expect(status.total).toBe(2);
       expect(status.pending).toBe(2);
     });
@@ -251,9 +256,9 @@ describe('TaskScheduler 任务调度器', () => {
         ...fixtures.highPriorityTask,
         dependencies: [parentId],
       });
-      
+
       const childTask = scheduler.getTask(childId);
-      
+
       expect(childTask?.dependencies).toContain(parentId);
     });
 
@@ -268,7 +273,7 @@ describe('TaskScheduler 任务调度器', () => {
       const dep1 = scheduler.addTask(fixtures.taskBase);
       const dep2 = scheduler.addTask(fixtures.highPriorityTask);
       const dep3 = scheduler.addTask(fixtures.lowPriorityTask);
-      
+
       const dependentId = scheduler.addTask({
         name: '多依赖任务',
         description: '依赖多个任务',
@@ -276,9 +281,9 @@ describe('TaskScheduler 任务调度器', () => {
         dependencies: [dep1, dep2, dep3],
         maxRetries: 1,
       });
-      
+
       const task = scheduler.getTask(dependentId);
-      
+
       expect(task?.dependencies).toHaveLength(3);
       expect(task?.dependencies).toContain(dep1);
       expect(task?.dependencies).toContain(dep2);
@@ -298,13 +303,13 @@ describe('TaskScheduler 任务调度器', () => {
         ...fixtures.highPriorityTask,
         dependencies: [parentId],
       });
-      
+
       const runnable = scheduler.getRunnableTasks();
-      
+
       // parent 任务没有依赖，应该可执行
       // child 任务依赖 parent，但 parent 未完成，所以 child 不可执行
-      expect(runnable.some(t => t.id === parentId)).toBe(true);
-      expect(runnable.some(t => t.id === childId)).toBe(false);
+      expect(runnable.some((t) => t.id === parentId)).toBe(true);
+      expect(runnable.some((t) => t.id === childId)).toBe(false);
     });
 
     /**
@@ -317,18 +322,18 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-014 should return task when all dependencies completed', async () => {
       const parentId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       // 完成父任务
       await scheduler.executeTask(parentId, 'test-agent');
-      
+
       // 现在子任务应该可执行
       const childId = scheduler.addTask({
         ...fixtures.highPriorityTask,
         dependencies: [parentId],
       });
-      
+
       const runnable = scheduler.getRunnableTasks();
-      
+
       expect(runnable).toHaveLength(1);
       expect(runnable[0].id).toBe(childId);
     });
@@ -353,9 +358,9 @@ describe('TaskScheduler 任务调度器', () => {
         ...fixtures.taskBase,
         name: 'Normal',
       });
-      
+
       const runnable = scheduler.getRunnableTasks();
-      
+
       expect(runnable[0].priority).toBe(TaskPriority.HIGH);
       expect(runnable[1].priority).toBe(TaskPriority.NORMAL);
       expect(runnable[2].priority).toBe(TaskPriority.LOW);
@@ -371,24 +376,24 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-016 should block task when dependency fails', async () => {
       const parentId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       // 尝试执行父任务 - 会失败
       try {
         await scheduler.executeTask(parentId, 'test-agent');
       } catch (e) {
         // 预期失败
       }
-      
+
       // 添加依赖此任务的其他任务
       const childId = scheduler.addTask({
         ...fixtures.highPriorityTask,
         dependencies: [parentId],
       });
-      
+
       // 执行检查阻塞任务逻辑
       // 由于 parent 失败，child 应该被阻塞
       const status = scheduler.getStatus();
-      
+
       expect(status.failed).toBe(1);
     });
 
@@ -403,10 +408,14 @@ describe('TaskScheduler 任务调度器', () => {
       const taskA = scheduler.addTask({ ...fixtures.taskBase, name: 'A', dependencies: [] });
       const taskB = scheduler.addTask({ ...fixtures.taskBase, name: 'B', dependencies: [taskA] });
       const taskC = scheduler.addTask({ ...fixtures.taskBase, name: 'C', dependencies: [taskA] });
-      const taskD = scheduler.addTask({ ...fixtures.taskBase, name: 'D', dependencies: [taskB, taskC] });
-      
+      const taskD = scheduler.addTask({
+        ...fixtures.taskBase,
+        name: 'D',
+        dependencies: [taskB, taskC],
+      });
+
       const order = scheduler.getExecutionOrder();
-      
+
       // A 应该在 B 和 C 之前
       expect(order.indexOf(taskA)).toBeLessThan(order.indexOf(taskB));
       expect(order.indexOf(taskA)).toBeLessThan(order.indexOf(taskC));
@@ -427,7 +436,7 @@ describe('TaskScheduler 任务调度器', () => {
       // 这是一个边界情况测试
       const taskA = scheduler.addTask({ ...fixtures.taskBase, name: 'A', dependencies: [] });
       const taskB = scheduler.addTask({ ...fixtures.taskBase, name: 'B', dependencies: [taskA] });
-      
+
       // 手动修改依赖造成循环（通过私有成员）
       // 这里只测试正常情况不崩溃
       expect(() => {
@@ -444,7 +453,7 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-019 should return false when tasks incomplete', () => {
       scheduler.addTask(fixtures.taskBase);
-      
+
       expect(scheduler.isComplete()).toBe(false);
     });
 
@@ -458,9 +467,9 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-020 should return true when all tasks complete', async () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       expect(scheduler.isComplete()).toBe(true);
     });
   });
@@ -475,28 +484,28 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-021 should limit concurrent tasks', async () => {
       const scheduler = createScheduler({ maxConcurrentTasks: 2 });
-      
+
       const taskIds = [
         scheduler.addTask({ ...fixtures.taskBase, name: 'Task1' }),
         scheduler.addTask({ ...fixtures.taskBase, name: 'Task2' }),
         scheduler.addTask({ ...fixtures.taskBase, name: 'Task3' }),
         scheduler.addTask({ ...fixtures.taskBase, name: 'Task4' }),
       ];
-      
+
       scheduler.registerExecutor('test-agent', async (task) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         return { success: true, output: task.name };
       });
-      
+
       // 执行前应该返回4个任务（都无依赖）
       const allRunnableBefore = scheduler.getRunnableTasks();
       expect(allRunnableBefore.length).toBe(4);
-      
+
       // 执行两个任务
       const p1 = scheduler.executeTask(taskIds[0], 'test-agent');
       const p2 = scheduler.executeTask(taskIds[1], 'test-agent');
       await Promise.all([p1, p2]);
-      
+
       // 再获取可运行任务，应该返回剩余2个
       const runnableAfter = scheduler.getRunnableTasks();
       expect(runnableAfter.length).toBe(2);
@@ -513,9 +522,9 @@ describe('TaskScheduler 任务调度器', () => {
       scheduler.addTask({ ...fixtures.taskBase, name: 'Task1' });
       scheduler.addTask({ ...fixtures.taskBase, name: 'Task2' });
       scheduler.addTask({ ...fixtures.taskBase, name: 'Task3' });
-      
+
       const runnable = scheduler.getRunnableTasks();
-      
+
       expect(runnable.length).toBe(3);
     });
 
@@ -528,10 +537,10 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-023 should respect parallel execution config', () => {
       const scheduler = createScheduler({ enableParallelExecution: false });
-      
+
       scheduler.addTask({ ...fixtures.taskBase, name: 'Task1' });
       scheduler.addTask({ ...fixtures.taskBase, name: 'Task2' });
-      
+
       // 仍然可以获取多个任务
       const runnable = scheduler.getRunnableTasks();
       expect(runnable.length).toBe(2);
@@ -547,12 +556,12 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-024 should set task status to RUNNING when executing', async () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       const executePromise = scheduler.executeTask(taskId, 'test-agent');
-      
+
       const task = scheduler.getTask(taskId);
       expect(task?.status).toBe(TaskStatus.RUNNING);
-      
+
       await executePromise;
     });
 
@@ -566,9 +575,9 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-025 should set startedAt when task begins', async () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       const task = scheduler.getTask(taskId);
       expect(task?.startedAt).toBeInstanceOf(Date);
       expect(task?.completedAt).toBeInstanceOf(Date);
@@ -586,15 +595,15 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-026 should retry failed task', async () => {
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 3 });
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {
         // 预期失败
       }
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.retries).toBe(1);
       // 根据实现，重试会设置状态为 PENDING 或 FAILED（取决于实现）
       expect([TaskStatus.PENDING, TaskStatus.FAILED]).toContain(task?.status);
@@ -610,24 +619,24 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-027 should mark task as FAILED after max retries', async () => {
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 2 });
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       // 第一次执行
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       // 第二次执行（重试）
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       // 第三次执行（最后一次重试）
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.retries).toBe(2); // 2次重试后
       expect(task?.status).toBe(TaskStatus.FAILED);
     });
@@ -641,7 +650,7 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-028 should succeed after retry', async () => {
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 3 });
-      
+
       let attempt = 0;
       scheduler.registerExecutor('test-agent', async (task) => {
         attempt++;
@@ -650,17 +659,17 @@ describe('TaskScheduler 任务调度器', () => {
         }
         return { success: true, output: 'Success on retry' };
       });
-      
+
       // 第一次尝试
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       // 第二次尝试 - 应该成功
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.status).toBe(TaskStatus.COMPLETED);
       expect(task?.retries).toBe(1);
     });
@@ -675,13 +684,13 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-029 should fail immediately when maxRetries is 0', async () => {
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 0 });
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.status).toBe(TaskStatus.FAILED);
       expect(task?.retries).toBe(0);
     });
@@ -696,17 +705,17 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-030 should handle task timeout', async () => {
       const scheduler = createScheduler({ taskTimeout: 2000 });
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 1 });
-      
+
       scheduler.registerExecutor('test-agent', async (task) => {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
         return { success: true, output: 'Done' };
       });
-      
+
       // 任务应该在超时内完成
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.status).toBe(TaskStatus.COMPLETED);
     });
 
@@ -720,13 +729,13 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-031 should save error message', async () => {
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 0 });
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.error).toBeDefined();
       expect(task?.error).toContain('failed');
     });
@@ -741,11 +750,11 @@ describe('TaskScheduler 任务调度器', () => {
     it('UT-Scheduler-032 should save task result on success', async () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       const task = scheduler.getTask(taskId);
-      
+
       expect(task?.result).toBeDefined();
       expect(task?.result?.success).toBe(true);
       expect(task?.result?.output).toContain('测试任务');
@@ -767,12 +776,12 @@ describe('TaskScheduler 任务调度器', () => {
           eventEmitted = true;
         }
       });
-      
+
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       expect(eventEmitted).toBe(true);
     });
 
@@ -790,12 +799,12 @@ describe('TaskScheduler 任务调度器', () => {
           eventData = event.data;
         }
       });
-      
+
       const taskId = scheduler.addTask(fixtures.taskBase);
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
+
       await scheduler.executeTask(taskId, 'test-agent');
-      
+
       expect(eventData).toBeDefined();
       expect(eventData.success).toBe(true);
     });
@@ -814,14 +823,14 @@ describe('TaskScheduler 任务调度器', () => {
           eventData = event.data;
         }
       });
-      
+
       const taskId = scheduler.addTask({ ...fixtures.taskBase, maxRetries: 0 });
       scheduler.registerExecutor('test-agent', fixtures.failingExecutor);
-      
+
       try {
         await scheduler.executeTask(taskId, 'test-agent');
       } catch (e) {}
-      
+
       expect(eventData).toBeDefined();
       expect(eventData.retry).toBe(false);
     });
@@ -837,10 +846,10 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-036 should throw error for non-existent task', async () => {
       scheduler.registerExecutor('test-agent', fixtures.successfulExecutor);
-      
-      await expect(
-        scheduler.executeTask('non-existent-id', 'test-agent')
-      ).rejects.toThrow('not found');
+
+      await expect(scheduler.executeTask('non-existent-id', 'test-agent')).rejects.toThrow(
+        'not found'
+      );
     });
 
     /**
@@ -852,10 +861,10 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-037 should throw error when executor not registered', async () => {
       const taskId = scheduler.addTask(fixtures.taskBase);
-      
-      await expect(
-        scheduler.executeTask(taskId, 'unknown-agent')
-      ).rejects.toThrow('No executor registered');
+
+      await expect(scheduler.executeTask(taskId, 'unknown-agent')).rejects.toThrow(
+        'No executor registered'
+      );
     });
 
     /**
@@ -872,9 +881,9 @@ describe('TaskScheduler 任务调度器', () => {
         retryDelay: 10000,
         enableParallelExecution: false,
       });
-      
+
       const status = customScheduler.getStatus();
-      
+
       expect(status.total).toBe(0);
     });
 
@@ -887,10 +896,10 @@ describe('TaskScheduler 任务调度器', () => {
      */
     it('UT-Scheduler-039 should use default configuration', () => {
       const defaultScheduler = new TaskScheduler();
-      
+
       const taskId = defaultScheduler.addTask(fixtures.taskBase);
       const task = defaultScheduler.getTask(taskId);
-      
+
       // 默认配置应该让任务可执行
       expect(task).toBeDefined();
     });
@@ -907,15 +916,15 @@ describe('TaskScheduler 任务调度器', () => {
         success: true,
         output: 'executor1',
       });
-      
+
       const executor2 = async (task: Task): Promise<TaskResult> => ({
         success: true,
         output: 'executor2',
       });
-      
+
       scheduler.registerExecutor('test-agent', executor1);
       scheduler.registerExecutor('test-agent', executor2);
-      
+
       // 重新注册应该成功
       expect(() => {
         // 不报错即可

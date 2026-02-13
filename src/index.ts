@@ -12,11 +12,11 @@ async function main() {
   const scheduler = new TaskScheduler({
     maxConcurrentTasks: 3,
     taskTimeout: 60000,
-    enableParallelExecution: true
+    enableParallelExecution: true,
   });
 
   // Register event handler
-  scheduler.onEvent(event => {
+  scheduler.onEvent((event) => {
     const time = event.timestamp.toISOString();
     switch (event.type) {
       case 'task_started':
@@ -37,11 +37,11 @@ async function main() {
   // Register a demo executor
   scheduler.registerExecutor('demo-agent', async (task) => {
     console.log(`   Executing: ${task.name}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     return {
       success: true,
       output: `Task ${task.id} completed`,
-      duration: 500
+      duration: 500,
     };
   });
 
@@ -51,7 +51,7 @@ async function main() {
     description: 'Create initial project directories and config files',
     priority: TaskPriority.HIGH,
     dependencies: [],
-    maxRetries: 2
+    maxRetries: 2,
   });
 
   const task2Id = scheduler.addTask({
@@ -59,7 +59,7 @@ async function main() {
     description: 'Build the requirement analyzer component',
     priority: TaskPriority.HIGH,
     dependencies: [task1Id],
-    maxRetries: 2
+    maxRetries: 2,
   });
 
   const task3Id = scheduler.addTask({
@@ -67,7 +67,7 @@ async function main() {
     description: 'Build the task scheduler engine',
     priority: TaskPriority.HIGH,
     dependencies: [task1Id],
-    maxRetries: 2
+    maxRetries: 2,
   });
 
   // Note: task4Id depends on task2Id and task3Id, will run after them
@@ -76,7 +76,7 @@ async function main() {
     description: 'Run integration tests on all components',
     priority: TaskPriority.NORMAL,
     dependencies: [task2Id, task3Id],
-    maxRetries: 3
+    maxRetries: 3,
   });
 
   console.log('📋 Added 4 tasks to scheduler');

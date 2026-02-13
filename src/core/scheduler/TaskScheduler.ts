@@ -269,7 +269,7 @@ export class TaskScheduler {
       if (task.retries < task.maxRetries) {
         task.retries++;
         const retryDelay = this.calculateRetryDelay(task.retries);
-        
+
         // Schedule retry with delay
         const timeoutId = setTimeout(() => {
           task.status = TaskStatus.PENDING;
@@ -281,9 +281,9 @@ export class TaskScheduler {
             data: { attempt: task.retries, delay: retryDelay },
           });
         }, retryDelay);
-        
+
         this.retryTimeouts.set(taskId, timeoutId);
-        
+
         this.emitEvent({
           type: 'task_failed',
           taskId,
@@ -314,14 +314,14 @@ export class TaskScheduler {
     const baseDelay = this.config.retryDelay;
     const maxDelay = 60000; // Cap at 1 minute
     const jitterFactor = 0.2; // 20% jitter
-    
+
     // Exponential backoff: baseDelay * 2^(attempt-1)
     let delay = baseDelay * Math.pow(2, attempt - 1);
-    
+
     // Add jitter to prevent thundering herd
     const jitter = delay * jitterFactor * Math.random();
     delay = delay + jitter;
-    
+
     // Cap at maxDelay
     return Math.min(delay, maxDelay);
   }
