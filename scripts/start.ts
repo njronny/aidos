@@ -10,6 +10,8 @@
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { projectRoutes } from '../src/api/routes/projects';
 import { requirementRoutes } from '../src/api/routes/requirements';
 import { taskRoutes } from '../src/api/routes/tasks';
@@ -23,6 +25,27 @@ const fastify = Fastify({
 
 async function main() {
   try {
+    // Register Swagger
+    await fastify.register(swagger, {
+      openapi: {
+        info: {
+          title: 'AIDOS API',
+          description: 'AI DevOps System - 全自动AI开发系统API',
+          version: '1.0.0',
+        },
+        servers: [{ url: `http://localhost:${process.env.PORT || 3000}` }],
+      },
+    });
+
+    // Register Swagger UI
+    await fastify.register(swaggerUi, {
+      routePrefix: '/api/docs',
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: false,
+      },
+    });
+
     // Register CORS
     await fastify.register(cors, {
       origin: true,
@@ -107,6 +130,7 @@ async function main() {
     await fastify.listen({ port, host });
     console.log(`🚀 Aidos API Server running at http://${host}:${port}`);
     console.log(`📡 WebSocket available at ws://${host}:${port}/ws`);
+    console.log(`📚 API Documentation at http://${host}:${port}/api/docs`);
     console.log(`📋 API Endpoints:`);
     console.log(`   - GET    /api/projects      - 项目列表`);
     console.log(`   - GET    /api/projects/:id  - 项目详情`);

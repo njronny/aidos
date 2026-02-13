@@ -1,0 +1,1027 @@
+openapi: 3.0.3
+info:
+  title: AIDOS API
+  description: |
+    AIDOS - AI DevOps System API
+    
+    全自动AI开发系统的RESTful API接口。
+    
+    ## 认证
+    当前版本无需认证。
+    
+    ## 分页
+    列表接口支持分页，参数说明：
+    - `page`: 页码，默认1
+    - `limit`: 每页数量，默认10
+    
+    ## 排序
+    - `sort`: 排序字段
+    - `order`: 排序方式 asc | desc
+  version: 1.0.0
+  contact:
+    name: AIDOS Team
+
+servers:
+  - url: http://localhost:3000
+    description: 本地开发服务器
+
+tags:
+  - name: Health
+    description: 健康检查
+  - name: Projects
+    description: 项目管理
+  - name: Requirements
+    description: 需求管理
+  - name: Tasks
+    description: 任务管理
+  - name: Agents
+    description: 代理管理
+  - name: WebSocket
+    description: WebSocket实时通信
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: 健康检查
+      description: 检查API服务器是否正常运行
+      operationId: getHealth
+      responses:
+        '200':
+          description: 服务器正常运行
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Aidos API Server is running
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api:
+    get:
+      tags:
+        - Health
+      summary: API信息
+      description: 获取API的基本信息和可用端点
+      operationId: getApiInfo
+      responses:
+        '200':
+          description: API信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiInfo'
+
+  # ==================== Projects ====================
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: 获取项目列表
+      description: 获取所有项目的分页列表
+      operationId: listProjects
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Search'
+      responses:
+        '200':
+          description: 项目列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjects'
+    post:
+      tags:
+        - Projects
+      summary: 创建项目
+      description: 创建新项目
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectDto'
+      responses:
+        '201':
+          description: 项目创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: 获取项目详情
+      description: 根据ID获取单个项目详情
+      operationId: getProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 项目详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '404':
+          description: 项目不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Projects
+      summary: 更新项目
+      description: 更新项目信息
+      operationId: updateProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectDto'
+      responses:
+        '200':
+          description: 项目更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '404':
+          description: 项目不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Projects
+      summary: 删除项目
+      description: 删除指定项目
+      operationId: deleteProject
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: 项目删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: 项目不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==================== Requirements ====================
+  /api/requirements:
+    get:
+      tags:
+        - Requirements
+      summary: 获取需求列表
+      description: 获取所有需求的分页列表，可按项目筛选
+      operationId: listRequirements
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Search'
+        - name: projectId
+          in: query
+          description: 项目ID筛选
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 需求列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequirements'
+    post:
+      tags:
+        - Requirements
+      summary: 创建需求
+      description: 创建新需求，并自动触发工作流
+      operationId: createRequirement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequirementDto'
+      responses:
+        '201':
+          description: 需求创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse'
+
+  /api/requirements/{id}:
+    get:
+      tags:
+        - Requirements
+      summary: 获取需求详情
+      description: 根据ID获取单个需求详情
+      operationId: getRequirement
+      parameters:
+        - $ref: '#/components/parameters/RequirementId'
+      responses:
+        '200':
+          description: 需求详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse'
+        '404':
+          description: 需求不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Requirements
+      summary: 更新需求
+      description: 更新需求信息
+      operationId: updateRequirement
+      parameters:
+        - $ref: '#/components/parameters/RequirementId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequirementDto'
+      responses:
+        '200':
+          description: 需求更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequirementResponse'
+        '404':
+          description: 需求不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Requirements
+      summary: 删除需求
+      description: 删除指定需求
+      operationId: deleteRequirement
+      parameters:
+        - $ref: '#/components/parameters/RequirementId'
+      responses:
+        '200':
+          description: 需求删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: 需求不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==================== Tasks ====================
+  /api/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: 获取任务列表
+      description: 获取所有任务的分页列表，可按需求或代理筛选
+      operationId: listTasks
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Search'
+        - name: requirementId
+          in: query
+          description: 需求ID筛选
+          schema:
+            type: string
+        - name: agentId
+          in: query
+          description: 代理ID筛选
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTasks'
+    post:
+      tags:
+        - Tasks
+      summary: 创建任务
+      description: 创建新任务
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskDto'
+      responses:
+        '201':
+          description: 任务创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+
+  /api/tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: 获取任务详情
+      description: 根据ID获取单个任务详情
+      operationId: getTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Tasks
+      summary: 更新任务
+      description: 更新任务信息
+      operationId: updateTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskDto'
+      responses:
+        '200':
+          description: 任务更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Tasks
+      summary: 删除任务
+      description: 删除指定任务
+      operationId: deleteTask
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: 任务删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==================== Agents ====================
+  /api/agents:
+    get:
+      tags:
+        - Agents
+      summary: 获取代理列表
+      description: 获取所有代理的分页列表
+      operationId: listAgents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Sort'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Search'
+        - name: type
+          in: query
+          description: 代理类型筛选
+          schema:
+            type: string
+            enum: [planner, developer, tester, reviewer]
+        - name: status
+          in: query
+          description: 代理状态筛选
+          schema:
+            type: string
+            enum: [idle, busy, offline]
+      responses:
+        '200':
+          description: 代理列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAgents'
+    post:
+      tags:
+        - Agents
+      summary: 创建代理
+      description: 创建新代理
+      operationId: createAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentDto'
+      responses:
+        '201':
+          description: 代理创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+
+  /api/agents/{id}:
+    get:
+      tags:
+        - Agents
+      summary: 获取代理详情
+      description: 根据ID获取单个代理详情
+      operationId: getAgent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          description: 代理详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '404':
+          description: 代理不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Agents
+      summary: 更新代理
+      description: 更新代理信息
+      operationId: updateAgent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentDto'
+      responses:
+        '200':
+          description: 代理更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '404':
+          description: 代理不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Agents
+      summary: 删除代理
+      description: 删除指定代理
+      operationId: deleteAgent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          description: 代理删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: 代理不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==================== WebSocket ====================
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: WebSocket连接
+      description: 建立WebSocket实时通信连接
+      operationId: wsConnect
+      responses:
+        '101':
+          description: 切换到WebSocket协议
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: 页码，从1开始
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+    Limit:
+      name: limit
+      in: query
+      description: 每页数量
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+    Sort:
+      name: sort
+      in: query
+      description: 排序字段
+      schema:
+        type: string
+    Order:
+      name: order
+      in: query
+      description: 排序方式
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    Search:
+      name: search
+      in: query
+      description: 搜索关键词
+      schema:
+        type: string
+    ProjectId:
+      name: id
+      in: path
+      description: 项目ID
+      required: true
+      schema:
+        type: string
+    RequirementId:
+      name: id
+      in: path
+      description: 需求ID
+      required: true
+      schema:
+        type: string
+    TaskId:
+      name: id
+      in: path
+      description: 任务ID
+      required: true
+      schema:
+        type: string
+    AgentId:
+      name: id
+      in: path
+      description: 代理ID
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    # Common
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+    ApiInfo:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Welcome to Aidos API
+        version:
+          type: string
+          example: 1.0.0
+        endpoints:
+          type: object
+          properties:
+            projects:
+              type: string
+              example: /api/projects
+            requirements:
+              type: string
+              example: /api/requirements
+            tasks:
+              type: string
+              example: /api/tasks
+            agents:
+              type: string
+              example: /api/agents
+            websocket:
+              type: string
+              example: /ws
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+
+    # Project
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          example: proj_abc123
+        name:
+          type: string
+          example: My Project
+        description:
+          type: string
+          example: 项目描述
+        status:
+          type: string
+          enum: [active, completed, archived]
+          example: active
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00.000Z
+    CreateProjectDto:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: My Project
+        description:
+          type: string
+          example: 项目描述
+    UpdateProjectDto:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, completed, archived]
+    ProjectResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Project'
+    PaginatedProjects:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Requirement
+    Requirement:
+      type: object
+      properties:
+        id:
+          type: string
+          example: req_abc123
+        projectId:
+          type: string
+          example: proj_abc123
+        title:
+          type: string
+          example: 用户登录功能
+        description:
+          type: string
+          example: 实现用户登录功能
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          example: high
+        status:
+          type: string
+          enum: [pending, in_progress, completed, rejected]
+          example: pending
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateRequirementDto:
+      type: object
+      required:
+        - projectId
+        - title
+      properties:
+        projectId:
+          type: string
+          example: proj_abc123
+        title:
+          type: string
+          example: 用户登录功能
+        description:
+          type: string
+          example: 实现用户登录功能
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          default: medium
+    UpdateRequirementDto:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        status:
+          type: string
+          enum: [pending, in_progress, completed, rejected]
+    RequirementResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Requirement'
+    PaginatedRequirements:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Requirement'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Task
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          example: task_abc123
+        requirementId:
+          type: string
+          example: req_abc123
+        agentId:
+          type: string
+          nullable: true
+          example: agent_abc123
+        title:
+          type: string
+          example: 实现登录API
+        description:
+          type: string
+          example: 实现登录接口
+        status:
+          type: string
+          enum: [pending, assigned, in_progress, completed, failed]
+          example: pending
+        result:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateTaskDto:
+      type: object
+      required:
+        - requirementId
+        - title
+      properties:
+        requirementId:
+          type: string
+          example: req_abc123
+        title:
+          type: string
+          example: 实现登录API
+        description:
+          type: string
+          example: 实现登录接口
+        agentId:
+          type: string
+          nullable: true
+    UpdateTaskDto:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, assigned, in_progress, completed, failed]
+        agentId:
+          type: string
+          nullable: true
+        result:
+          type: string
+          nullable: true
+    TaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Task'
+    PaginatedTasks:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    # Agent
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          example: agent_abc123
+        name:
+          type: string
+          example: Developer Agent
+        type:
+          type: string
+          enum: [planner, developer, tester, reviewer]
+          example: developer
+        status:
+          type: string
+          enum: [idle, busy, offline]
+          example: idle
+        capabilities:
+          type: array
+          items:
+            type: string
+          example: ["code_generation", "code_review"]
+        currentTaskId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateAgentDto:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          example: Developer Agent
+        type:
+          type: string
+          enum: [planner, developer, tester, reviewer]
+          example: developer
+        capabilities:
+          type: array
+          items:
+            type: string
+          example: ["code_generation"]
+    UpdateAgentDto:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [planner, developer, tester, reviewer]
+        status:
+          type: string
+          enum: [idle, busy, offline]
+        capabilities:
+          type: array
+          items:
+            type: string
+        currentTaskId:
+          type: string
+          nullable: true
+    AgentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Agent'
+    PaginatedAgents:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
