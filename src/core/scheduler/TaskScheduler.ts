@@ -8,6 +8,7 @@ import {
   SchedulerEvent,
   SchedulerEventHandler,
 } from '../../types';
+import { getMetricsService, CoreMetricName } from '../monitoring';
 
 // Validation constants
 const MIN_TASK_NAME_LENGTH = 1;
@@ -252,6 +253,11 @@ export class TaskScheduler {
       this.completedTasks.add(taskId);
       this.runningTasks.delete(taskId);
 
+      // Record metrics
+      const durationMs = task.startedAt ? Date.now() - task.startedAt.getTime() : 0;
+      const metricsService = getMetricsService();
+      metricsService.recordTaskComplete(true, durationMs);
+
       this.emitEvent({
         type: 'task_completed',
         taskId,
@@ -264,6 +270,11 @@ export class TaskScheduler {
       task.status = TaskStatus.FAILED;
       task.error = error instanceof Error ? error.message : String(error);
       this.runningTasks.delete(taskId);
+
+      // Record metrics
+      const durationMs = task.startedAt ? Date.now() - task.startedAt.getTime() : 0;
+      const metricsService = getMetricsService();
+      metricsService.recordTaskComplete(false, durationMs);
 
       // Retry logic with exponential backoff delay
       if (task.retries < task.maxRetries) {
@@ -420,6 +431,10 @@ export class TaskScheduler {
           break;
       }
     }
+
+    // Update queue depth metric
+    const metricsService = getMetricsService();
+    metricsService.setQueueDepth(pending + running);
 
     return {
       total: this.dag.tasks.size,

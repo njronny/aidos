@@ -9,11 +9,38 @@ import { publicRoute, authMiddleware } from './auth';
 import { getWorkflowService } from '../core/workflow';
 import { dataStore } from './store';
 import { initializeDatabase } from '../infrastructure/database';
+import { getMetricsService, CoreMetricName } from '../core/monitoring';
+
+// Extend FastifyRequest to include startTime
+declare module 'fastify' {
+  interface FastifyRequest {
+    startTime?: number;
+  }
+}
 
 const fastify = Fastify({
   logger: {
     level: 'info',
   },
+});
+
+// Request timing hook for metrics
+fastify.addHook('onRequest', async (request: FastifyRequest) => {
+  request.startTime = Date.now();
+});
+
+fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+  if (request.startTime) {
+    const responseTime = Date.now() - request.startTime;
+    const metricsService = getMetricsService();
+    metricsService.incrementApiRequest();
+    metricsService.recordApiResponseTime(responseTime);
+    
+    // Track error rate for non-2xx responses
+    if (reply.statusCode >= 400) {
+      metricsService.incrementApiError();
+    }
+  }
 });
 
 async function startServer() {
