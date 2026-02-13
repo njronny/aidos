@@ -24,14 +24,13 @@ function validateToken(token: string): { username: string; valid: boolean } {
   return { username: tokenData.username, valid: true };
 }
 
-// 认证中间件
+// 认证中间件 - 当前暂时禁用，用于演示
 export async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
-  // Skip auth for public endpoints
-  const url = request.url;
-  if (url.includes('/auth/') || url === '/api' || url === '/api/') {
-    return;
-  }
+  // TODO: 生产环境需要重新启用认证
+  // 当前暂时放行所有请求，用于演示
+  return;
   
+  /*
   const authHeader = request.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
