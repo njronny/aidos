@@ -39,16 +39,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // GET /projects - 获取所有项目
   fastify.get<{ Querystring: QueryParams }>('/projects', async (request: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search } = request.query;
-    let projects = dataStore.getAllProjects();
-    projects = filterItems(projects, search);
-    projects = sortItems(projects, sort, order);
-    const result = paginateItems(projects, page, limit);
+    const projects = await dataStore.getAllProjects();
+    let filtered = filterItems(projects, search);
+    filtered = sortItems(filtered, sort, order);
+    const result = paginateItems(filtered, page, limit);
     return reply.send({ success: true, ...result });
   });
 
   // GET /projects/:id - 获取单个项目
   fastify.get<{ Params: { id: string } }>('/projects/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const project = dataStore.getProjectById(request.params.id);
+    const project = await dataStore.getProjectById(request.params.id);
     if (!project) {
       return reply.status(404).send({ success: false, error: '项目不存在' });
     }
@@ -61,13 +61,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
     if (!name) {
       return reply.status(400).send({ success: false, error: '项目名称不能为空' });
     }
-    const project = dataStore.createProject({ name, description });
+    const project = await dataStore.createProject({ name, description });
     return reply.status(201).send({ success: true, data: project });
   });
 
   // PUT /projects/:id - 更新项目
   fastify.put<{ Params: { id: string }; Body: UpdateProjectDto }>('/projects/:id', async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateProjectDto }>, reply: FastifyReply) => {
-    const project = dataStore.updateProject(request.params.id, request.body);
+    const project = await dataStore.updateProject(request.params.id, request.body);
     if (!project) {
       return reply.status(404).send({ success: false, error: '项目不存在' });
     }
@@ -76,7 +76,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // DELETE /projects/:id - 删除项目
   fastify.delete<{ Params: { id: string } }>('/projects/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    const deleted = dataStore.deleteProject(request.params.id);
+    const deleted = await dataStore.deleteProject(request.params.id);
     if (!deleted) {
       return reply.status(404).send({ success: false, error: '项目不存在' });
     }

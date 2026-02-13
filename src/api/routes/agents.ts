@@ -39,16 +39,16 @@ export async function agentRoutes(fastify: FastifyInstance) {
   // GET /agents - 获取所有代理
   fastify.get<{ Querystring: QueryParams & { type?: string; status?: string } }>('/agents', async (request, reply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search, type, status } = request.query;
-    let agents = dataStore.getAllAgents({ type, status });
-    agents = filterItems(agents, search);
-    agents = sortItems(agents, sort, order);
-    const result = paginateItems(agents, page, limit);
+    const agents = await dataStore.getAllAgents({ type, status });
+    let filtered = filterItems(agents, search);
+    filtered = sortItems(filtered, sort, order);
+    const result = paginateItems(filtered, page, limit);
     return reply.send({ success: true, ...result });
   });
 
   // GET /agents/:id - 获取单个代理
   fastify.get<{ Params: { id: string } }>('/agents/:id', async (request, reply) => {
-    const agent = dataStore.getAgentById(request.params.id);
+    const agent = await dataStore.getAgentById(request.params.id);
     if (!agent) {
       return reply.status(404).send({ success: false, error: '代理不存在' });
     }
@@ -61,13 +61,13 @@ export async function agentRoutes(fastify: FastifyInstance) {
     if (!name || !type) {
       return reply.status(400).send({ success: false, error: '名称和类型不能为空' });
     }
-    const agent = dataStore.createAgent({ name, type, capabilities });
+    const agent = await dataStore.createAgent({ name, type, capabilities });
     return reply.status(201).send({ success: true, data: agent });
   });
 
   // PUT /agents/:id - 更新代理
   fastify.put<{ Params: { id: string }; Body: UpdateAgentDto }>('/agents/:id', async (request, reply) => {
-    const agent = dataStore.updateAgent(request.params.id, request.body);
+    const agent = await dataStore.updateAgent(request.params.id, request.body);
     if (!agent) {
       return reply.status(404).send({ success: false, error: '代理不存在' });
     }
@@ -76,7 +76,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
 
   // DELETE /agents/:id - 删除代理
   fastify.delete<{ Params: { id: string } }>('/agents/:id', async (request, reply) => {
-    const deleted = dataStore.deleteAgent(request.params.id);
+    const deleted = await dataStore.deleteAgent(request.params.id);
     if (!deleted) {
       return reply.status(404).send({ success: false, error: '代理不存在' });
     }

@@ -42,16 +42,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // GET /tasks - 获取所有任务
   fastify.get<{ Querystring: QueryParams & { requirementId?: string; agentId?: string } }>('/tasks', async (request, reply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search, requirementId, agentId } = request.query;
-    let tasks = dataStore.getAllTasks({ requirementId, agentId });
-    tasks = filterItems(tasks, search);
-    tasks = sortItems(tasks, sort, order);
-    const result = paginateItems(tasks, page, limit);
+    const tasks = await dataStore.getAllTasks({ requirementId, agentId });
+    let filtered = filterItems(tasks, search);
+    filtered = sortItems(filtered, sort, order);
+    const result = paginateItems(filtered, page, limit);
     return reply.send({ success: true, ...result });
   });
 
   // GET /tasks/:id - 获取单个任务
   fastify.get<{ Params: { id: string } }>('/tasks/:id', async (request, reply) => {
-    const task = dataStore.getTaskById(request.params.id);
+    const task = await dataStore.getTaskById(request.params.id);
     if (!task) {
       return reply.status(404).send({ success: false, error: '任务不存在' });
     }
@@ -64,13 +64,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (!requirementId || !title) {
       return reply.status(400).send({ success: false, error: '需求ID和标题不能为空' });
     }
-    const task = dataStore.createTask({ requirementId, title, description, agentId });
+    const task = await dataStore.createTask({ requirementId, title, description, agentId });
     return reply.status(201).send({ success: true, data: task });
   });
 
   // PUT /tasks/:id - 更新任务
   fastify.put<{ Params: { id: string }; Body: UpdateTaskDto }>('/tasks/:id', async (request, reply) => {
-    const task = dataStore.updateTask(request.params.id, request.body);
+    const task = await dataStore.updateTask(request.params.id, request.body);
     if (!task) {
       return reply.status(404).send({ success: false, error: '任务不存在' });
     }
@@ -79,7 +79,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // DELETE /tasks/:id - 删除任务
   fastify.delete<{ Params: { id: string } }>('/tasks/:id', async (request, reply) => {
-    const deleted = dataStore.deleteTask(request.params.id);
+    const deleted = await dataStore.deleteTask(request.params.id);
     if (!deleted) {
       return reply.status(404).send({ success: false, error: '任务不存在' });
     }

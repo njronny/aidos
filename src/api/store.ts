@@ -1,221 +1,272 @@
-// In-memory data store for API
-import { v4 as uuidv4 } from 'uuid';
-import { Project, Requirement, Task, Agent } from './types';
+// Data store with SQLite persistence
+import { ProjectRepository } from '../infrastructure/database/repositories/project.repository';
+import { RequirementRepository } from '../infrastructure/database/repositories/requirement.repository';
+import { TaskRepository } from '../infrastructure/database/repositories/task.repository';
+import { AgentRepository } from '../infrastructure/database/repositories/agent.repository';
+import { Project, Requirement, Task, Agent, CreateProjectDto, UpdateProjectDto, CreateRequirementDto, UpdateRequirementDto, CreateTaskDto, UpdateTaskDto, CreateAgentDto, UpdateAgentDto } from './types';
+
+// Repositories
+const projectRepo = new ProjectRepository();
+const requirementRepo = new RequirementRepository();
+const taskRepo = new TaskRepository();
+const agentRepo = new AgentRepository();
+
+/**
+ * 将数据库实体转换为 API 类型
+ */
+function toApiProject(p: any): Project {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    status: p.status,
+    createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+    updatedAt: p.updatedAt instanceof Date ? p.updatedAt.toISOString() : p.updatedAt,
+  };
+}
+
+function toApiRequirement(r: any): Requirement {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    title: r.title,
+    description: r.content,
+    priority: r.priority,
+    status: r.status === 'analyzing' ? 'in_progress' : r.status === 'analyzed' ? 'completed' : r.status === 'rejected' ? 'rejected' : 'pending',
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+  };
+}
+
+function toDbRequirement(input: CreateRequirementDto): any {
+  return {
+    projectId: input.projectId,
+    title: input.title,
+    content: input.description || '',
+    priority: input.priority || 'medium',
+    status: 'pending',
+  };
+}
+
+function toApiTask(t: any): Task {
+  return {
+    id: t.id,
+    requirementId: t.requirementId || '',
+    agentId: t.assignee,
+    title: t.title,
+    description: t.description,
+    status: t.status === 'running' ? 'in_progress' : t.status === 'assigned' ? 'assigned' : t.status,
+    result: t.result ? JSON.stringify(t.result) : undefined,
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+    updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+  };
+}
+
+function toDbTask(input: CreateTaskDto): any {
+  return {
+    projectId: '', // 需要从 requirement 获取
+    requirementId: input.requirementId,
+    title: input.title,
+    description: input.description,
+    status: input.agentId ? 'pending' : 'pending',
+    assignee: input.agentId,
+    priority: 0,
+  };
+}
+
+function toApiAgent(a: any): Agent {
+  return {
+    id: a.id,
+    name: a.name,
+    type: a.role === 'Dev' ? 'developer' : a.role === 'PM' ? 'planner' : a.role === 'QA' ? 'tester' : 'reviewer',
+    status: a.status,
+    capabilities: a.capabilities,
+    currentTaskId: a.currentTaskId,
+    createdAt: a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
+    updatedAt: a.updatedAt instanceof Date ? a.updatedAt.toISOString() : a.updatedAt,
+  };
+}
+
+function toDbAgent(input: CreateAgentDto): any {
+  return {
+    name: input.name,
+    role: input.type === 'developer' ? 'Dev' : input.type === 'planner' ? 'PM' : input.type === 'tester' ? 'QA' : 'Dev',
+    status: 'idle',
+    capabilities: input.capabilities || [],
+  };
+}
 
 class DataStore {
-  private projects: Map<string, Project> = new Map();
-  private requirements: Map<string, Requirement> = new Map();
-  private tasks: Map<string, Task> = new Map();
-  private agents: Map<string, Agent> = new Map();
-
-  constructor() {
-    this.seedData();
-  }
-
-  private seedData() {
-    // Seed sample data
-    const projectId = uuidv4();
-    this.projects.set(projectId, {
-      id: projectId,
-      name: '示例项目',
-      description: 'AI开发系统演示项目',
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    const reqId = uuidv4();
-    this.requirements.set(reqId, {
-      id: reqId,
-      projectId,
-      title: '用户登录功能',
-      description: '实现基于JWT的用户认证系统',
-      priority: 'high',
-      status: 'in_progress',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    const taskId = uuidv4();
-    this.tasks.set(taskId, {
-      id: taskId,
-      requirementId: reqId,
-      title: '实现登录API',
-      description: '创建登录和注册接口',
-      status: 'in_progress',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    const agentId = uuidv4();
-    this.agents.set(agentId, {
-      id: agentId,
-      name: '开发代理',
-      type: 'developer',
-      status: 'idle',
-      capabilities: ['code_generation', 'code_review'],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-  }
-
   // Projects
-  getAllProjects() {
-    return Array.from(this.projects.values());
+  async getAllProjects() {
+    const projects = await projectRepo.findAll();
+    return projects.map(toApiProject);
   }
 
-  getProjectById(id: string) {
-    return this.projects.get(id) || null;
+  async getProjectById(id: string) {
+    const project = await projectRepo.findById(id);
+    return project ? toApiProject(project) : null;
   }
 
-  createProject(data: { name: string; description?: string }) {
-    const project: Project = {
-      id: uuidv4(),
+  async createProject(data: CreateProjectDto) {
+    const project = await projectRepo.create({
       name: data.name,
       description: data.description,
       status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.projects.set(project.id, project);
-    return project;
+    });
+    return toApiProject(project);
   }
 
-  updateProject(id: string, data: Partial<Project>) {
-    const project = this.projects.get(id);
-    if (!project) return null;
-    const updated = { ...project, ...data, updatedAt: new Date().toISOString() };
-    this.projects.set(id, updated);
-    return updated;
+  async updateProject(id: string, data: UpdateProjectDto) {
+    const project = await projectRepo.update(id, {
+      name: data.name,
+      description: data.description,
+      status: data.status,
+    });
+    return project ? toApiProject(project) : null;
   }
 
-  deleteProject(id: string) {
-    return this.projects.delete(id);
+  async deleteProject(id: string) {
+    return await projectRepo.delete(id);
   }
 
   // Requirements
-  getAllRequirements(filters?: { projectId?: string }) {
-    let reqs = Array.from(this.requirements.values());
+  async getAllRequirements(filters?: { projectId?: string }) {
+    let requirements;
     if (filters?.projectId) {
-      reqs = reqs.filter(r => r.projectId === filters.projectId);
+      requirements = await requirementRepo.findByProjectId(filters.projectId);
+    } else {
+      requirements = await requirementRepo.findAll();
     }
-    return reqs;
+    return requirements.map(toApiRequirement);
   }
 
-  getRequirementById(id: string) {
-    return this.requirements.get(id) || null;
+  async getRequirementById(id: string) {
+    const requirement = await requirementRepo.findById(id);
+    return requirement ? toApiRequirement(requirement) : null;
   }
 
-  createRequirement(data: { projectId: string; title: string; description?: string; priority?: string }) {
-    const requirement: Requirement = {
-      id: uuidv4(),
-      projectId: data.projectId,
+  async createRequirement(data: CreateRequirementDto) {
+    const requirement = await requirementRepo.create(toDbRequirement(data));
+    return toApiRequirement(requirement);
+  }
+
+  async updateRequirement(id: string, data: UpdateRequirementDto) {
+    const requirement = await requirementRepo.update(id, {
       title: data.title,
-      description: data.description,
-      priority: (data.priority as any) || 'medium',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.requirements.set(requirement.id, requirement);
-    return requirement;
+      content: data.description,
+      status: data.status === 'in_progress' ? 'analyzing' : data.status === 'completed' ? 'analyzed' : data.status === 'rejected' ? 'rejected' : 'pending',
+      priority: data.priority,
+    });
+    return requirement ? toApiRequirement(requirement) : null;
   }
 
-  updateRequirement(id: string, data: Partial<Requirement>) {
-    const req = this.requirements.get(id);
-    if (!req) return null;
-    const updated = { ...req, ...data, updatedAt: new Date().toISOString() };
-    this.requirements.set(id, updated);
-    return updated;
-  }
-
-  deleteRequirement(id: string) {
-    return this.requirements.delete(id);
+  async deleteRequirement(id: string) {
+    return await requirementRepo.delete(id);
   }
 
   // Tasks
-  getAllTasks(filters?: { requirementId?: string; agentId?: string }) {
-    let taskList = Array.from(this.tasks.values());
+  async getAllTasks(filters?: { requirementId?: string; agentId?: string }) {
+    let tasks;
     if (filters?.requirementId) {
-      taskList = taskList.filter(t => t.requirementId === filters.requirementId);
+      tasks = await taskRepo.findByRequirementId(filters.requirementId);
+    } else if (filters?.agentId) {
+      tasks = await taskRepo.findByAssignee(filters.agentId);
+    } else {
+      tasks = await taskRepo.findAll();
     }
-    if (filters?.agentId) {
-      taskList = taskList.filter(t => t.agentId === filters.agentId);
-    }
-    return taskList;
+    return tasks.map(toApiTask);
   }
 
-  getTaskById(id: string) {
-    return this.tasks.get(id) || null;
+  async getTaskById(id: string) {
+    const task = await taskRepo.findById(id);
+    return task ? toApiTask(task) : null;
   }
 
-  createTask(data: { requirementId: string; title: string; description?: string; agentId?: string }) {
-    const task: Task = {
-      id: uuidv4(),
+  async createTask(data: CreateTaskDto) {
+    // 获取 requirement 来获取 projectId
+    const requirement = await requirementRepo.findById(data.requirementId);
+    const task = await taskRepo.create({
+      projectId: requirement?.projectId || '',
       requirementId: data.requirementId,
       title: data.title,
       description: data.description,
-      agentId: data.agentId,
-      status: data.agentId ? 'assigned' : 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      status: 'pending',
+      assignee: data.agentId,
+      priority: 0,
+    });
+    return toApiTask(task);
+  }
+
+  async updateTask(id: string, data: UpdateTaskDto) {
+    const statusMap: Record<string, any> = {
+      'pending': 'pending',
+      'assigned': 'pending',
+      'in_progress': 'running',
+      'completed': 'completed',
+      'failed': 'failed',
     };
-    this.tasks.set(task.id, task);
-    return task;
+    const task = await taskRepo.update(id, {
+      title: data.title,
+      description: data.description,
+      status: data.status ? statusMap[data.status] : undefined,
+      assignee: data.agentId,
+    });
+    return task ? toApiTask(task) : null;
   }
 
-  updateTask(id: string, data: Partial<Task>) {
-    const task = this.tasks.get(id);
-    if (!task) return null;
-    const updated = { ...task, ...data, updatedAt: new Date().toISOString() };
-    this.tasks.set(id, updated);
-    return updated;
-  }
-
-  deleteTask(id: string) {
-    return this.tasks.delete(id);
+  async deleteTask(id: string) {
+    return await taskRepo.delete(id);
   }
 
   // Agents
-  getAllAgents(filters?: { type?: string; status?: string }) {
-    let agentList = Array.from(this.agents.values());
-    if (filters?.type) {
-      agentList = agentList.filter(a => a.type === filters.type);
-    }
+  async getAllAgents(filters?: { type?: string; status?: string }) {
+    let agents;
     if (filters?.status) {
-      agentList = agentList.filter(a => a.status === filters.status);
+      agents = await agentRepo.findByStatus(filters.status as any);
+    } else if (filters?.type) {
+      const roleMap: Record<string, any> = {
+        'planner': 'PM',
+        'developer': 'Dev',
+        'tester': 'QA',
+        'reviewer': 'Dev',
+      };
+      agents = await agentRepo.findByRole(roleMap[filters.type] as any);
+    } else {
+      agents = await agentRepo.findAll();
     }
-    return agentList;
+    return agents.map(toApiAgent);
   }
 
-  getAgentById(id: string) {
-    return this.agents.get(id) || null;
+  async getAgentById(id: string) {
+    const agent = await agentRepo.findById(id);
+    return agent ? toApiAgent(agent) : null;
   }
 
-  createAgent(data: { name: string; type: string; capabilities?: string[] }) {
-    const agent: Agent = {
-      id: uuidv4(),
-      name: data.name,
-      type: data.type as any,
-      status: 'idle',
-      capabilities: data.capabilities,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  async createAgent(data: CreateAgentDto) {
+    const agent = await agentRepo.create(toDbAgent(data));
+    return toApiAgent(agent);
+  }
+
+  async updateAgent(id: string, data: UpdateAgentDto) {
+    const roleMap: Record<string, any> = {
+      'planner': 'PM',
+      'developer': 'Dev',
+      'tester': 'QA',
+      'reviewer': 'Dev',
     };
-    this.agents.set(agent.id, agent);
-    return agent;
+    const agent = await agentRepo.update(id, {
+      name: data.name,
+      role: data.type ? roleMap[data.type] as any : undefined,
+      status: data.status,
+      capabilities: data.capabilities,
+      currentTaskId: data.currentTaskId,
+    });
+    return agent ? toApiAgent(agent) : null;
   }
 
-  updateAgent(id: string, data: Partial<Agent>) {
-    const agent = this.agents.get(id);
-    if (!agent) return null;
-    const updated = { ...agent, ...data, updatedAt: new Date().toISOString() };
-    this.agents.set(id, updated);
-    return updated;
-  }
-
-  deleteAgent(id: string) {
-    return this.agents.delete(id);
+  async deleteAgent(id: string) {
+    return await agentRepo.delete(id);
   }
 }
 

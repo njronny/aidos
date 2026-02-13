@@ -28,8 +28,7 @@ async function initializeAuth() {
 
 // 生成Access Token
 function generateAccessToken(username: string): string {
-  const options: SignOptions = { expiresIn: JWT_EXPIRES_IN };
-  return jwt.sign({ username, type: 'access' }, JWT_SECRET, options);
+  return jwt.sign({ username, type: 'access' }, JWT_SECRET, { expiresIn: '24h' });
 }
 
 // 生成Refresh Token
@@ -147,7 +146,7 @@ export function publicRoute() {
             accessToken,
             refreshToken,
             username,
-            expiresIn: JWT_EXPIRES_IN,
+            expiresIn: '24h',
           },
         });
       }
@@ -180,7 +179,7 @@ export function publicRoute() {
           data: {
             accessToken: result.newAccessToken,
             username: result.username,
-            expiresIn: JWT_EXPIRES_IN,
+            expiresIn: '24h',
           },
         });
       }

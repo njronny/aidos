@@ -48,16 +48,17 @@ export async function testConnection(): Promise<boolean> {
 /**
  * 获取当前数据库类型
  */
-export function getDatabaseClient(): 'sqlite' | 'pg' {
+export function getDatabaseClient(): 'better-sqlite3' | 'sqlite3' | 'pg' {
   const config = getDatabaseConfig();
   return config.client;
 }
 
 /**
- * 判断是否为 SQLite
+ * 判断是否为 SQLite (better-sqlite3 或 sqlite3)
  */
 export function isSQLite(): boolean {
-  return getDatabaseClient() === 'sqlite';
+  const client = getDatabaseClient();
+  return client === 'sqlite3' || client === 'better-sqlite3';
 }
 
 /**

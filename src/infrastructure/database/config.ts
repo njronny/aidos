@@ -2,13 +2,14 @@
  * 数据库配置
  */
 export interface DatabaseConfig {
-  client: 'sqlite' | 'pg';
+  client: 'sqlite3' | 'better-sqlite3' | 'pg';
   connection: string | SQLiteConfig | PGConfig;
   useNullAsDefault?: boolean;
   pool?: {
     min: number;
     max: number;
   };
+  acquireConnectionTimeout?: number;
 }
 
 export interface SQLiteConfig {
@@ -27,7 +28,7 @@ export interface PGConfig {
  * 根据环境变量获取数据库配置
  */
 export function getDatabaseConfig(): DatabaseConfig {
-  const client = (process.env.DB_CLIENT as 'sqlite' | 'pg') || 'sqlite';
+  const client = (process.env.DB_CLIENT as 'sqlite3' | 'better-sqlite3' | 'pg') || 'better-sqlite3';
 
   if (client === 'pg') {
     return {
@@ -48,7 +49,7 @@ export function getDatabaseConfig(): DatabaseConfig {
 
   // SQLite 默认配置
   return {
-    client: 'sqlite',
+    client: 'better-sqlite3',
     connection: {
       filename: process.env.DB_FILENAME || './data/aidos.db',
     },
@@ -57,5 +58,6 @@ export function getDatabaseConfig(): DatabaseConfig {
       min: 1,
       max: 1,
     },
+    acquireConnectionTimeout: 5000,
   };
 }

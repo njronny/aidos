@@ -40,16 +40,16 @@ export async function requirementRoutes(fastify: FastifyInstance) {
   // GET /requirements - 获取所有需求
   fastify.get<{ Querystring: QueryParams & { projectId?: string } }>('/requirements', async (request, reply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search, projectId } = request.query;
-    let requirements = dataStore.getAllRequirements({ projectId });
-    requirements = filterItems(requirements, search);
-    requirements = sortItems(requirements, sort, order);
-    const result = paginateItems(requirements, page, limit);
+    const requirements = await dataStore.getAllRequirements({ projectId });
+    let filtered = filterItems(requirements, search);
+    filtered = sortItems(filtered, sort, order);
+    const result = paginateItems(filtered, page, limit);
     return reply.send({ success: true, ...result });
   });
 
   // GET /requirements/:id - 获取单个需求
   fastify.get<{ Params: { id: string } }>('/requirements/:id', async (request, reply) => {
-    const requirement = dataStore.getRequirementById(request.params.id);
+    const requirement = await dataStore.getRequirementById(request.params.id);
     if (!requirement) {
       return reply.status(404).send({ success: false, error: '需求不存在' });
     }
@@ -62,7 +62,7 @@ export async function requirementRoutes(fastify: FastifyInstance) {
     if (!projectId || !title) {
       return reply.status(400).send({ success: false, error: '项目ID和标题不能为空' });
     }
-    const requirement = dataStore.createRequirement({ projectId, title, description, priority });
+    const requirement = await dataStore.createRequirement({ projectId, title, description, priority });
 
     // 自动触发工作流
     try {
@@ -85,7 +85,7 @@ export async function requirementRoutes(fastify: FastifyInstance) {
 
   // PUT /requirements/:id - 更新需求
   fastify.put<{ Params: { id: string }; Body: UpdateRequirementDto }>('/requirements/:id', async (request, reply) => {
-    const requirement = dataStore.updateRequirement(request.params.id, request.body);
+    const requirement = await dataStore.updateRequirement(request.params.id, request.body);
     if (!requirement) {
       return reply.status(404).send({ success: false, error: '需求不存在' });
     }
@@ -94,7 +94,7 @@ export async function requirementRoutes(fastify: FastifyInstance) {
 
   // DELETE /requirements/:id - 删除需求
   fastify.delete<{ Params: { id: string } }>('/requirements/:id', async (request, reply) => {
-    const deleted = dataStore.deleteRequirement(request.params.id);
+    const deleted = await dataStore.deleteRequirement(request.params.id);
     if (!deleted) {
       return reply.status(404).send({ success: false, error: '需求不存在' });
     }
