@@ -5,26 +5,46 @@ import { TaskExecutor, AgentExecutionResult } from '../executor';
 import { Notifier } from '../notifier/Notifier';
 import { TaskRepository } from '../../infrastructure/database/repositories/task.repository';
 import { wsManager } from '../../api/websocket';
+import { AgentPool, AgentType, AssignmentStrategy } from '../agents';
 
 /**
  * Workflow Service - 工作流服务
- * 整合WorkflowEngine和TaskExecutor，处理需求到任务执行的全流程
+ * 整合WorkflowEngine、TaskExecutor和AgentPool，处理需求到任务执行的全流程
  * 支持实时任务执行和WebSocket推送
+ * 支持代理池自动分配
  */
 export class WorkflowService {
   private workflowEngine: WorkflowEngine;
   private taskExecutor: TaskExecutor;
   private taskRepository: TaskRepository;
   private notifier: Notifier;
+  private agentPool: AgentPool;
 
   constructor(notifier?: Notifier) {
     this.notifier = notifier ?? new Notifier();
     this.workflowEngine = new WorkflowEngine({}, this.notifier);
     this.taskRepository = new TaskRepository();
     this.taskExecutor = new TaskExecutor({}, this.notifier, undefined, this.taskRepository);
+    
+    // 初始化代理池
+    this.agentPool = new AgentPool({
+      maxConcurrentTasksPerAgent: 1,
+      taskTimeout: 300000,
+      enableAutoAssignment: true,
+      fallbackEnabled: true,
+    }, AssignmentStrategy.CAPABILITY_MATCH);
 
     // Listen to workflow events
     this.workflowEngine.onEvent(this.handleWorkflowEvent.bind(this));
+    
+    console.log('[WorkflowService] AgentPool initialized with 6 agents');
+  }
+
+  /**
+   * 获取代理池实例
+   */
+  getAgentPool(): AgentPool {
+    return this.agentPool;
   }
 
   /**
@@ -92,6 +112,7 @@ export class WorkflowService {
   /**
    * Process a new requirement - 主入口
    * 当有新需求时，自动分析并拆分成具体开发任务，并立即执行
+   * 同时使用代理池自动分配给合适的代理
    */
   async processRequirement(requirement: Requirement): Promise<Workflow> {
     console.log(`[WorkflowService] Processing requirement: ${requirement.title}`);
@@ -101,12 +122,47 @@ export class WorkflowService {
 
     console.log(`[WorkflowService] Created ${workflow.tasks.length} tasks, executing immediately...`);
 
+    // 使用代理池自动分配任务给合适的代理
+    await this.assignTasksToAgents(requirement);
+
     // Execute tasks immediately after creation
     if (workflow.tasks.length > 0) {
       await this.executeWorkflowTasks(requirement.id);
     }
 
     return workflow;
+  }
+
+  /**
+   * 使用代理池自动分配任务
+   * 根据任务类型分配给合适的代理处理
+   */
+  private async assignTasksToAgents(requirement: Requirement): Promise<void> {
+    console.log(`[WorkflowService] Assigning tasks to agents for requirement: ${requirement.title}`);
+    
+    try {
+      // 使用代理池根据需求自动分配
+      const agentResults = await this.agentPool.assignForRequirement({
+        title: requirement.title,
+        description: requirement.description || '',
+      });
+
+      // 输出各代理的处理结果
+      for (const [agentType, result] of agentResults) {
+        if (result.success) {
+          console.log(`[WorkflowService] ✅ ${agentType} completed: ${result.output?.substring(0, 50)}...`);
+        } else {
+          console.log(`[WorkflowService] ❌ ${agentType} failed: ${result.error}`);
+        }
+      }
+      
+      // 获取代理池状态
+      const poolStatus = this.agentPool.getStatus();
+      console.log(`[WorkflowService] AgentPool status: ${poolStatus.idleAgents}/${poolStatus.totalAgents} idle`);
+      
+    } catch (error) {
+      console.error('[WorkflowService] Error assigning tasks to agents:', error);
+    }
   }
 
   /**
@@ -189,6 +245,13 @@ export class WorkflowService {
    */
   getWorkflowStatus() {
     return this.workflowEngine.getStatus();
+  }
+
+  /**
+   * Get agent pool status
+   */
+  getAgentPoolStatus() {
+    return this.agentPool.getStatus();
   }
 
   /**
