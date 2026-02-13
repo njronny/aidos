@@ -1,0 +1,327 @@
+/* 科学计算器样式 - Scientific Calculator Styles */
+
+:root {
+  --primary-color: #1a73e8;
+  --primary-dark: #1557b0;
+  --secondary-color: #34a853;
+  --accent-color: #ea4335;
+  --warning-color: #fbbc04;
+  --bg-dark: #1e1e1e;
+  --bg-card: #2d2d2d;
+  --bg-button: #3d3d3d;
+  --bg-button-hover: #4d4d4d;
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --border-color: #404040;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.calculator {
+  background: var(--bg-dark);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.calculator-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.calculator-header h1 {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* Display */
+.display {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: right;
+}
+
+.expression {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  min-height: 20px;
+  word-break: break-all;
+  margin-bottom: 8px;
+}
+
+.result {
+  color: var(--text-primary);
+  font-size: 2.2rem;
+  font-weight: 600;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Memory Controls */
+.memory-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.memory-btn {
+  flex: 1;
+  padding: 10px 4px;
+  background: var(--bg-button);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.memory-btn:hover {
+  background: var(--bg-button-hover);
+  color: var(--text-primary);
+}
+
+/* Scientific Controls */
+.scientific-controls {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--bg-card);
+  border-radius: 12px;
+}
+
+.func-btn {
+  padding: 10px 4px;
+  background: var(--bg-button);
+  border: none;
+  border-radius: 8px;
+  color: var(--primary-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.func-btn:hover {
+  background: var(--primary-color);
+  color: white;
+}
+
+/* Main Controls */
+.main-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+}
+
+.btn {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.number {
+  background: var(--bg-button);
+  color: var(--text-primary);
+}
+
+.number:hover {
+  background: var(--bg-button-hover);
+  transform: scale(1.02);
+}
+
+.number:active {
+  transform: scale(0.98);
+}
+
+.operator {
+  background: var(--primary-color);
+  color: white;
+}
+
+.operator:hover {
+  background: var(--primary-dark);
+  transform: scale(1.02);
+}
+
+.equals {
+  background: var(--secondary-color);
+  color: white;
+}
+
+.equals:hover {
+  background: #2d8f47;
+  transform: scale(1.02);
+}
+
+.clear, .clear-entry {
+  background: var(--accent-color);
+  color: white;
+  font-size: 1rem;
+}
+
+.clear:hover, .clear-entry:hover {
+  background: #d33426;
+}
+
+.sign, .decimal {
+  background: var(--bg-button);
+  color: var(--text-primary);
+}
+
+/* History Section */
+.history-section {
+  margin-top: 16px;
+}
+
+.history-toggle {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-card);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-toggle:hover {
+  background: var(--bg-button);
+  color: var(--text-primary);
+}
+
+.history-panel {
+  display: none;
+  margin-top: 12px;
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.history-panel.show {
+  display: block;
+}
+
+.history-list {
+  margin-bottom: 12px;
+}
+
+.history-item {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item .expression {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.history-item .result {
+  color: var(--secondary-color);
+  font-size: 1rem;
+  text-align: right;
+}
+
+.history-clear {
+  width: 100%;
+  padding: 8px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.history-clear:hover {
+  background: #d33426;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-card);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .calculator {
+    padding: 16px;
+  }
+  
+  .display {
+    padding: 12px;
+  }
+  
+  .result {
+    font-size: 1.8rem;
+  }
+  
+  .btn {
+    padding: 12px;
+    font-size: 1rem;
+  }
+  
+  .scientific-controls {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>科学计算器 - Scientific Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="calculator">
+    <div class="calculator-header">
+      <h1>🔢 科学计算器</h1>
+      <p class="subtitle">Scientific Calculator</p>
+    </div>
+    
+    <div class="display">
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="memory-controls">
+      <button class="memory-btn" onclick="calc.memoryClear()">MC</button>
+      <button class="memory-btn" onclick="calc.memoryRecall()">MR</button>
+      <button class="memory-btn" onclick="calc.memoryAdd()">M+</button>
+      <button class="memory-btn" onclick="calc.memorySubtract()">M-</button>
+      <button class="memory-btn" onclick="calc.memorySave()">MS</button>
+    </div>
+
+    <div class="scientific-controls">
+      <button class="func-btn" onclick="calc.insertFunction('sin')">sin</button>
+      <button class="func-btn" onclick="calc.insertFunction('cos')">cos</button>
+      <button class="func-btn" onclick="calc.insertFunction('tan')">tan</button>
+      <button class="func-btn" onclick="calc.insertFunction('log')">log</button>
+      <button class="func-btn" onclick="calc.insertFunction('ln')">ln</button>
+      <button class="func-btn" onclick="calc.insertFunction('sqrt')">√</button>
+      <button class="func-btn" onclick="calc.insertFunction('pow2')">x²</button>
+      <button class="func-btn" onclick="calc.insertFunction('pow3')">x³</button>
+      <button class="func-btn" onclick="calc.insertFunction('powY')">x^y</button>
+      <button class="func-btn" onclick="calc.insertFunction('factorial')">n!</button>
+      <button class="func-btn" onclick="calc.insertFunction('pi')">π</button>
+      <button class="func-btn" onclick="calc.insertFunction('e')">e</button>
+      <button class="func-btn" onclick="calc.insertFunction('exp')">exp</button>
+      <button class="func-btn" onclick="calc.insertFunction('abs')">|x|</button>
+      <button class="func-btn" onclick="calc.insertFunction('inverse')">1/x</button>
+    </div>
+
+    <div class="main-controls">
+      <div class="row">
+        <button class="btn clear" onclick="calc.clear()">C</button>
+        <button class="btn clear-entry" onclick="calc.clearEntry()">CE</button>
+        <button class="btn operator" onclick="calc.backspace()">⌫</button>
+        <button class="btn operator" onclick="calc.insert('/')">÷</button>
+      </div>
+      <div class="row">
+        <button class="btn number" onclick="calc.insert('7')">7</button>
+        <button class="btn number" onclick="calc.insert('8')">8</button>
+        <button class="btn number" onclick="calc.insert('9')">9</button>
+        <button class="btn operator" onclick="calc.insert('*')">×</button>
+      </div>
+      <div class="row">
+        <button class="btn number" onclick="calc.insert('4')">4</button>
+        <button class="btn number" onclick="calc.insert('5')">5</button>
+        <button class="btn number" onclick="calc.insert('6')">6</button>
+        <button class="btn operator" onclick="calc.insert('-')">−</button>
+      </div>
+      <div class="row">
+        <button class="btn number" onclick="calc.insert('1')">1</button>
+        <button class="btn number" onclick="calc.insert('2')">2</button>
+        <button class="btn number" onclick="calc.insert('3')">3</button>
+        <button class="btn operator" onclick="calc.insert('+')">+</button>
+      </div>
+      <div class="row">
+        <button class="btn sign" onclick="calc.toggleSign()">±</button>
+        <button class="btn number" onclick="calc.insert('0')">0</button>
+        <button class="btn decimal" onclick="calc.insert('.')">.</button>
+        <button class="btn equals" onclick="calc.calculate()">=</button>
+      </div>
+    </div>
+
+    <div class="history-section">
+      <button class="history-toggle" onclick="calc.toggleHistory()">
+        📜 计算历史
+      </button>
+      <div class="history-panel" id="historyPanel">
+        <div class="history-list" id="historyList"></div>
+        <button class="history-clear" onclick="calc.clearHistory()">清空历史</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="calculator.js"></script>
+</body>
+</html>

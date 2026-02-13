@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { Task, TaskStatus, TaskResult, TaskPriority } from '../../types';
 import { Notifier } from '../notifier/Notifier';
+import { GitOps } from '../gitops/GitOps';
 
 /**
  * Executor Types
@@ -54,7 +57,316 @@ export interface TaskExecutorConfig {
   autoRetry: boolean;
   maxRetries: number;
   shellTimeout: number;
+  outputDir: string;
+  gitAutoPush: boolean;
 }
+
+/**
+ * Code Generator Templates
+ */
+interface CodeTemplate {
+  extension: string;
+  content: (task: Task) => string;
+}
+
+const TEMPLATES: Record<string, CodeTemplate> = {
+  frontend: {
+    extension: '.tsx',
+    content: (task: Task) => `import React, { useState, useEffect } from 'react';
+import './${task.name.replace(/\s+/g, '')}.css';
+
+interface ${task.name.replace(/\s+/g, '')}Props {
+  className?: string;
+}
+
+export const ${task.name.replace(/\s+/g, '')}: React.FC<${task.name.replace(/\s+/g, '')}Props> = ({ 
+  className = '' 
+}) => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // TODO: Implement data fetching for ${task.name}
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // API call here
+        setData({});
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) return <div className={\`\${className} loading\`}>Loading...</div>;
+  if (error) return <div className={\`\${className} error\`}>{error}</div>;
+
+  return (
+    <div className={\`\${className} ${task.name.replace(/\s+/g, '-').toLowerCase()}\`}>
+      <h2>${task.name}</h2>
+      <p>${task.description}</p>
+    </div>
+  );
+};
+
+export default ${task.name.replace(/\s+/g, '')};
+`,
+  },
+  api: {
+    extension: '.ts',
+    content: (task: Task) => `import { Request, Response, NextFunction } from 'express';
+
+interface ${task.name.replace(/\s+/g, '')}Request {
+  // Request body type
+}
+
+interface ${task.name.replace(/\s+/g, '')}Response {
+  // Response type
+}
+
+/**
+ * ${task.name} - ${task.description}
+ */
+export const ${task.name.replace(/\s+/g, '')}Handler = async (
+  req: Request<{}, ${task.name.replace(/\s+/g, '')}Response, ${task.name.replace(/\s+/g, '')}Request>,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { /* destructured params */ } = req.body;
+
+    // TODO: Implement business logic for ${task.name}
+    const result = {
+      success: true,
+      data: {
+        id: '${task.id}',
+        name: '${task.name}',
+        createdAt: new Date().toISOString(),
+      },
+    };
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Validation middleware for ${task.name}
+ */
+export const validate${task.name.replace(/\s+/g, '')}Request = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  // TODO: Add validation logic
+  next();
+};
+
+export default { ${task.name.replace(/\s+/g, '')}Handler, validate${task.name.replace(/\s+/g, '')}Request };
+`,
+  },
+  database: {
+    extension: '.sql',
+    content: (task: Task) => `-- Database Schema: ${task.name}
+-- Created: ${new Date().toISOString()}
+
+-- Table: ${task.id.replace(/-/g, '_')}
+CREATE TABLE IF NOT EXISTS ${task.id.replace(/-/g, '_')} (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Index for faster queries
+CREATE INDEX IF NOT EXISTS idx_${task.id.replace(/-/g, '_')}_status 
+    ON ${task.id.replace(/-/g, '_')}(status);
+
+CREATE INDEX IF NOT EXISTS idx_${task.id.replace(/-/g, '_')}_created_at 
+    ON ${task.id.replace(/-/g, '_')}(created_at);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_${task.id.replace(/-/g, '_')}_updated_at ON ${task.id.replace(/-/g, '_')};
+CREATE TRIGGER update_${task.id.replace(/-/g, '_')}_updated_at
+    BEFORE UPDATE ON ${task.id.replace(/-/g, '_')}
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Comments
+COMMENT ON TABLE ${task.id.replace(/-/g, '_')} IS '${task.description}';
+COMMENT ON COLUMN ${task.id.replace(/-/g, '_')}.name IS 'Name of the entity';
+COMMENT ON COLUMN ${task.id.replace(/-/g, '_')}.status IS 'Status: active, inactive, pending';
+`,
+  },
+  test: {
+    extension: '.test.ts',
+    content: (task: Task) => `import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+
+// Mock dependencies
+jest.mock('../services/...', () => ({
+  // mock implementation
+}));
+
+describe('${task.name}', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Core functionality', () => {
+    it('should ${task.name.toLowerCase()} successfully', async () => {
+      // Arrange
+      const input = {
+        id: '${task.id}',
+        name: '${task.name}',
+      };
+
+      // Act
+      const result = true; // TODO: Implement actual test
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('should handle errors gracefully', async () => {
+      // Arrange
+      const errorInput = null;
+
+      // Act & Assert
+      await expect(async () => {
+        throw new Error('Not implemented');
+      }).rejects.toThrow();
+    });
+
+    it('should validate input correctly', () => {
+      // TODO: Add validation tests
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should handle empty input', () => {
+      const result = true; // TODO: Implement
+      expect(result).toBeDefined();
+    });
+
+    it('should handle large input', () => {
+      const result = true; // TODO: Implement
+      expect(result).toBeDefined();
+    });
+  });
+});
+`,
+  },
+  component: {
+    extension: '.tsx',
+    content: (task: Task) => `import React from 'react';
+import styles from './${task.name.replace(/\s+/g, '')}.module.css';
+
+interface ${task.name.replace(/\s+/g, '')}Props {
+  children?: React.ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+/**
+ * ${task.name} Component
+ * ${task.description}
+ */
+export const ${task.name.replace(/\s+/g, '')}: React.FC<${task.name.replace(/\s+/g, '')}Props> = ({
+  children,
+  onClick,
+  disabled = false,
+  className = '',
+}) => {
+  const handleClick = () => {
+    if (!disabled && onClick) {
+      onClick();
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={\`\${styles.button} \${className}\`}
+      onClick={handleClick}
+      disabled={disabled}
+    >
+      {children || '${task.name}'}
+    </button>
+  );
+};
+
+export default ${task.name.replace(/\s+/g, '')};
+`,
+  },
+  service: {
+    extension: '.ts',
+    content: (task: Task) => `/**
+ * ${task.name} Service
+ * ${task.description}
+ */
+
+export interface I${task.name.replace(/\s+/g, '')}Service {
+  findAll(): Promise<any[]>;
+  findById(id: string): Promise<any | null>;
+  create(data: Partial<any>): Promise<any>;
+  update(id: string, data: Partial<any>): Promise<any>;
+  delete(id: string): Promise<boolean>;
+}
+
+export class ${task.name.replace(/\s+/g, '')}Service implements I${task.name.replace(/\s+/g, '')}Service {
+  async findAll(): Promise<any[]> {
+    // TODO: Implement findAll
+    return [];
+  }
+
+  async findById(id: string): Promise<any | null> {
+    // TODO: Implement findById
+    return null;
+  }
+
+  async create(data: Partial<any>): Promise<any> {
+    // TODO: Implement create
+    return { ...data, id: '${task.id}', createdAt: new Date() };
+  }
+
+  async update(id: string, data: Partial<any>): Promise<any> {
+    // TODO: Implement update
+    return { ...data, id, updatedAt: new Date() };
+  }
+
+  async delete(id: string): Promise<boolean> {
+    // TODO: Implement delete
+    return true;
+  }
+}
+
+export const ${task.name.replace(/\s+/g, '')}ServiceFactory = (): I${task.name.replace(/\s+/g, '')}Service => {
+  return new ${task.name.replace(/\s+/g, '')}Service();
+};
+
+export default ${task.name.replace(/\s+/g, '')}Service;
+`,
+  },
+};
 
 /**
  * Task Executor - 任务执行器
@@ -64,13 +376,15 @@ export interface TaskExecutorConfig {
 export class TaskExecutor {
   private config: TaskExecutorConfig;
   private notifier: Notifier;
+  private gitOps: GitOps;
   private runningTasks: Map<string, ExecutorTask> = new Map();
   private completedTasks: Map<string, ExecutorTask> = new Map();
   private taskHandlers: Map<string, (task: Task) => Promise<TaskResult>> = new Map();
 
   constructor(
     config: Partial<TaskExecutorConfig> = {},
-    notifier?: Notifier
+    notifier?: Notifier,
+    gitOps?: GitOps
   ) {
     this.config = {
       enableGitCommit: config.enableGitCommit ?? true,
@@ -78,9 +392,12 @@ export class TaskExecutor {
       autoRetry: config.autoRetry ?? true,
       maxRetries: config.maxRetries ?? 3,
       shellTimeout: config.shellTimeout ?? 60000,
+      outputDir: config.outputDir ?? path.join(process.cwd(), 'generated'),
+      gitAutoPush: config.gitAutoPush ?? false,
     };
 
     this.notifier = notifier ?? new Notifier();
+    this.gitOps = gitOps ?? new GitOps({ repoPath: process.cwd() });
   }
 
   /**
@@ -162,6 +479,61 @@ export class TaskExecutor {
   }
 
   /**
+   * Determine task type from task name/description
+   */
+  private getTaskType(task: Task): string {
+    const desc = (task.name + ' ' + task.description).toLowerCase();
+    
+    if (desc.includes('api') || desc.includes('接口') || desc.includes('endpoint')) {
+      return 'api';
+    }
+    if (desc.includes('前端') || desc.includes('frontend') || desc.includes('界面') || desc.includes('ui') || desc.includes('组件')) {
+      return 'frontend';
+    }
+    if (desc.includes('数据库') || desc.includes('database') || desc.includes('sql') || desc.includes('数据')) {
+      return 'database';
+    }
+    if (desc.includes('测试') || desc.includes('test') || desc.includes('spec')) {
+      return 'test';
+    }
+    if (desc.includes('service') || desc.includes('服务')) {
+      return 'service';
+    }
+    if (desc.includes('组件') || desc.includes('component')) {
+      return 'component';
+    }
+    return 'frontend'; // default to frontend
+  }
+
+  /**
+   * Generate code and write to file system
+   */
+  private async generateAndWriteCode(task: Task, type: string): Promise<string[]> {
+    const template = TEMPLATES[type];
+    if (!template) {
+      console.warn(`[TaskExecutor] No template found for type: ${type}, using frontend as default`);
+      return this.generateAndWriteCode(task, 'frontend');
+    }
+
+    const safeName = task.name.replace(/\s+/g, '-').toLowerCase();
+    const outputDir = path.join(this.config.outputDir, type + 's', safeName);
+    const fileName = `${safeName}${template.extension}`;
+    const filePath = path.join(outputDir, fileName);
+
+    // Ensure directory exists
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Generate code content
+    const content = template.content(task);
+
+    // Write to file
+    await fs.writeFile(filePath, content, 'utf-8');
+    console.log(`[TaskExecutor] Generated code: ${filePath}`);
+
+    return [filePath];
+  }
+
+  /**
    * Perform actual task execution based on task type
    */
   private async performTaskExecution(task: Task): Promise<AgentExecutionResult> {
@@ -169,41 +541,34 @@ export class TaskExecutor {
     const taskDesc = task.description.toLowerCase();
     const taskName = task.name.toLowerCase();
 
-    // Simulate agent execution
     let output = '';
     let success = true;
     const artifacts: string[] = [];
 
-    // Analyze task and generate appropriate response
-    if (taskName.includes('api') || taskDesc.includes('api') || taskDesc.includes('接口')) {
-      output = await this.generateAPI(task);
-      artifacts.push('src/api/generated.ts');
-    } else if (taskName.includes('前端') || taskDesc.includes('frontend') || taskDesc.includes('界面')) {
-      output = await this.generateFrontend(task);
-      artifacts.push('src/ui/generated/');
-    } else if (taskName.includes('数据库') || taskDesc.includes('database') || taskDesc.includes('数据')) {
-      output = await this.generateDatabaseSchema(task);
-      artifacts.push('src/database/schema.sql');
-    } else if (taskName.includes('测试') || taskDesc.includes('test')) {
-      output = await this.generateTests(task);
-      artifacts.push('src/__tests__/generated.test.ts');
-    } else if (taskName.includes('文档') || taskDesc.includes('docs')) {
-      output = await this.generateDocs(task);
-      artifacts.push('docs/generated.md');
-    } else if (taskName.includes('代码审查') || taskDesc.includes('review')) {
-      output = await this.performCodeReview(task);
-    } else if (taskName.includes('分析')) {
-      output = await this.analyzeRequirement(task);
+    // Determine task type and generate code
+    const taskType = this.getTaskType(task);
+
+    if (this.config.enableCodeGeneration) {
+      try {
+        // Generate and write code to file system
+        const generatedFiles = await this.generateAndWriteCode(task, taskType);
+        artifacts.push(...generatedFiles);
+        output = `Generated ${taskType} code: ${generatedFiles.join(', ')}`;
+        console.log(`[TaskExecutor] ${output}`);
+      } catch (error) {
+        console.error(`[TaskExecutor] Code generation failed:`, error);
+        output = `Code generation failed: ${error}`;
+        success = false;
+      }
     } else {
-      // Generic implementation
-      output = await this.implementFeature(task);
-      artifacts.push(`src/features/${task.id}.ts`);
+      // Fallback to simulated execution
+      output = await this.performSimulatedExecution(task, taskType);
     }
 
     // Auto Git commit if enabled
     let gitCommit;
     if (this.config.enableGitCommit && artifacts.length > 0) {
-      gitCommit = await this.autoGitCommit(task, artifacts);
+      gitCommit = await this.performAutoGitCommit(task, artifacts);
     }
 
     return {
@@ -218,11 +583,29 @@ export class TaskExecutor {
   }
 
   /**
-   * Generate API code
+   * Perform simulated execution (when code generation is disabled)
+   */
+  private async performSimulatedExecution(task: Task, taskType: string): Promise<string> {
+    switch (taskType) {
+      case 'api':
+        return this.generateAPI(task);
+      case 'frontend':
+        return this.generateFrontend(task);
+      case 'database':
+        return this.generateDatabaseSchema(task);
+      case 'test':
+        return this.generateTests(task);
+      case 'service':
+        return this.generateService(task);
+      default:
+        return this.implementFeature(task);
+    }
+  }
+
+  /**
+   * Generate API code (legacy simulated)
    */
   private async generateAPI(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Generating API for: ${task.name}`);
-    // Simulate code generation
     return `
 # API Implementation: ${task.name}
 
@@ -233,7 +616,6 @@ export class TaskExecutor {
 
 \`\`\`typescript
 export async function ${task.name.replace(/\s+/g, '')}Handler(req: Request, res: Response) {
-  // Implementation for ${task.name}
   return res.json({ success: true, data: {} });
 }
 \`\`\`
@@ -241,57 +623,45 @@ export async function ${task.name.replace(/\s+/g, '')}Handler(req: Request, res:
   }
 
   /**
-   * Generate Frontend code
+   * Generate Frontend code (legacy simulated)
    */
   private async generateFrontend(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Generating Frontend for: ${task.name}`);
     return `
 # Frontend Implementation: ${task.name}
 
 ## Generated Components
 - ${task.name}Page
 - ${task.name}Form
-- ${task.name}List
-
-\`\`\`tsx
-export const ${task.name.replace(/\s+/g, '')}Page: React.FC = () => {
-  return <div>${task.description}</div>;
-};
-\`\`\`
     `.trim();
   }
 
   /**
-   * Generate Database Schema
+   * Generate Database Schema (legacy simulated)
    */
   private async generateDatabaseSchema(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Generating Database Schema for: ${task.name}`);
     return `
 # Database Schema: ${task.name}
 
 ## Generated SQL
 \`\`\`sql
 CREATE TABLE ${task.id.replace(/-/g, '_')} (
-  id SERIAL PRIMARY KEY,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  id SERIAL PRIMARY KEY
 );
 \`\`\`
     `.trim();
   }
 
   /**
-   * Generate Tests
+   * Generate Tests (legacy simulated)
    */
   private async generateTests(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Generating Tests for: ${task.name}`);
     return `
 # Test Cases: ${task.name}
 
 ## Generated Tests
 \`\`\`typescript
 describe('${task.name}', () => {
-  it('should work correctly', () => {
+  it('should work', () => {
     expect(true).toBe(true);
   });
 });
@@ -300,64 +670,25 @@ describe('${task.name}', () => {
   }
 
   /**
-   * Generate Documentation
+   * Generate Service (legacy simulated)
    */
-  private async generateDocs(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Generating Documentation for: ${task.name}`);
+  private async generateService(task: Task): Promise<string> {
     return `
-# Documentation: ${task.name}
+# Service: ${task.name}
 
-## Overview
-${task.description}
-
-## Usage
-TODO: Add usage examples
+## Methods
+- findAll()
+- findById(id)
+- create(data)
+- update(id, data)
+- delete(id)
     `.trim();
   }
 
   /**
-   * Perform Code Review
-   */
-  private async performCodeReview(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Performing Code Review for: ${task.name}`);
-    return `
-# Code Review: ${task.name}
-
-## Review Summary
-- Status: Approved ✅
-- Code Quality: Good
-- Suggestions: None
-
-## Files Reviewed
-- All modified files in this task
-    `.trim();
-  }
-
-  /**
-   * Analyze Requirement
-   */
-  private async analyzeRequirement(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Analyzing Requirement: ${task.name}`);
-    return `
-# Requirement Analysis: ${task.name}
-
-## Analysis Result
-- Priority: ${TaskPriority[task.priority]}
-- Estimated Duration: 60 minutes
-- Dependencies: None identified
-- Risks: Low
-
-## Recommendations
-1. Proceed with implementation
-2. Add unit tests
-    `.trim();
-  }
-
-  /**
-   * Implement Feature
+   * Implement Feature (legacy simulated)
    */
   private async implementFeature(task: Task): Promise<string> {
-    console.log(`[TaskExecutor] Implementing Feature: ${task.name}`);
     return `
 # Feature Implementation: ${task.name}
 
@@ -369,29 +700,48 @@ TODO: Add usage examples
   }
 
   /**
-   * Auto Git Commit
+   * Perform Auto Git Commit
    */
-  private async autoGitCommit(
+  private async performAutoGitCommit(
     task: Task,
     artifacts: string[]
   ): Promise<{ hash: string; message: string } | undefined> {
     if (!this.config.enableGitCommit) return undefined;
 
     console.log(`[TaskExecutor] Performing Git commit for: ${task.name}`);
+    console.log(`[TaskExecutor] Staging files: ${artifacts.join(', ')}`);
 
-    // In a real implementation, this would:
-    // 1. Stage files: git add <artifacts>
-    // 2. Commit: git commit -m "feat: ${task.name}"
-    // 3. Return commit hash
+    try {
+      // Stage files
+      for (const file of artifacts) {
+        await this.gitOps.add(file);
+      }
 
-    const commitHash = uuidv4().substring(0, 7);
-    const commitMessage = `feat: ${task.name}`;
+      // Create commit
+      const commitMessage = `feat: ${task.name} - ${task.description.substring(0, 50)}`;
+      const result = await this.gitOps.commit(commitMessage);
 
-    // Simulate git commit
-    return {
-      hash: commitHash,
-      message: commitMessage,
-    };
+      if (result.success && result.commitHash) {
+        console.log(`[TaskExecutor] Committed: ${result.commitHash}`);
+
+        // Optionally push
+        if (this.config.gitAutoPush) {
+          await this.gitOps.push();
+          console.log(`[TaskExecutor] Pushed to remote`);
+        }
+
+        return {
+          hash: result.commitHash,
+          message: commitMessage,
+        };
+      } else {
+        console.error(`[TaskExecutor] Commit failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error(`[TaskExecutor] Git commit error:`, error);
+    }
+
+    return undefined;
   }
 
   /**
@@ -443,6 +793,42 @@ TODO: Add usage examples
    */
   updateConfig(config: Partial<TaskExecutorConfig>): void {
     this.config = { ...this.config, ...config };
+  }
+
+  /**
+   * Get GitOps instance
+   */
+  getGitOps(): GitOps {
+    return this.gitOps;
+  }
+
+  /**
+   * Manually trigger code generation for a task
+   */
+  async generateCode(task: Task, type?: string): Promise<string[]> {
+    const taskType = type || this.getTaskType(task);
+    return this.generateAndWriteCode(task, taskType);
+  }
+
+  /**
+   * Manually trigger Git commit for files
+   */
+  async commitFiles(files: string[], message: string): Promise<{ hash: string; message: string } | undefined> {
+    try {
+      for (const file of files) {
+        await this.gitOps.add(file);
+      }
+      const result = await this.gitOps.commit(message);
+      if (result.success && result.commitHash) {
+        return {
+          hash: result.commitHash,
+          message: message,
+        };
+      }
+    } catch (error) {
+      console.error(`[TaskExecutor] Manual commit failed:`, error);
+    }
+    return undefined;
   }
 }
 
