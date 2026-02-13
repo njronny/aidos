@@ -1,4 +1,5 @@
 // Login functionality
+const API_URL = 'http://' + window.location.hostname + ':3000';
 const Login = {
   tokenKey: 'aidos_auth_token',
   userKey: 'aidos_user',
@@ -23,7 +24,7 @@ const Login = {
   // Login function
   async login(username, password) {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
+      const response = await fetch(`${API_URL_FOR_ALL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,7 +67,7 @@ const Login = {
     try {
       const token = this.getToken();
       if (token) {
-        await fetch(`${API_BASE}/api/auth/logout`, {
+        await fetch(`${API_URL_FOR_ALL}/api/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -90,7 +91,7 @@ const Login = {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/auth/verify`, {
+      const response = await fetch(`${API_URL_FOR_ALL}/api/auth/verify`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -243,7 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Override fetch for API calls to include auth
 const originalFetch = window.fetch;
 window.fetch = async function(url, options = {}) {
-  if (typeof url === 'string' && url.startsWith(API_BASE) && !url.includes('/auth/')) {
+  if (typeof url === 'string' && url.startsWith(API_URL) && !url.includes('/auth/')) {
     const token = Login.getToken();
     if (token) {
       options.headers = {

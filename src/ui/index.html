@@ -254,7 +254,7 @@
 
       try {
         // Create project
-        const projectRes = await fetch(`${API_BASE}/api/projects`, {
+        const projectRes = await fetch(`${API_URL}/api/projects`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: projectName, description: projectDesc })
@@ -265,7 +265,7 @@
           const projectId = projectData.data.id;
           
           // Add requirement
-          const reqRes = await fetch(`${API_BASE}/api/requirements`, {
+          const reqRes = await fetch(`${API_URL}/api/requirements`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -296,7 +296,11 @@
     }
 
     // API Base URL
-    const API_BASE = 'http://127.0.0.1:3000';
+    // 动态获取API地址
+    const API_BASE = window.location.hostname + ':3000';
+    const API_URL = 'http://' + API_BASE;
+    // 兼容：所有API调用使用动态地址
+    var API_URL_FOR_ALL = API_URL;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
