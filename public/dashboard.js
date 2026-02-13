@@ -1,4 +1,4 @@
-// Dashboard - Simplified
+// Dashboard - Fixed
 (function() {
   var API_URL = '';
   
@@ -9,8 +9,9 @@
         if (d.success && d.data) {
           var t = d.data;
           var total = t.length;
+          // 同时处理running和in_progress
           var completed = t.filter(function(x) { return x.status === 'completed'; }).length;
-          var in_progress = t.filter(function(x) { return x.status === 'in_progress'; }).length;
+          var in_progress = t.filter(function(x) { return x.status === 'in_progress' || x.status === 'running'; }).length;
           var failed = t.filter(function(x) { return x.status === 'failed'; }).length;
           var pending = t.filter(function(x) { return !x.status || x.status === 'pending'; }).length;
           
@@ -21,7 +22,9 @@
           el = document.getElementById('failedTasks'); if(el) el.textContent = failed;
           el = document.getElementById('pendingTasks'); if(el) el.textContent = pending;
           
-          var pct = total ? Math.round(completed / total * 100) : 0;
+          // 进度 = 已完成 / (总数 - 进行中)
+          var progressBase = total - in_progress;
+          var pct = progressBase > 0 ? Math.round(completed / progressBase * 100) : 0;
           var fill = document.getElementById('progressFill');
           var pctx = document.getElementById('progressPercent');
           if(fill) fill.style.width = pct + '%';
@@ -29,7 +32,6 @@
         }
       });
       
-      // 项目数
       fetch(API_URL + '/api/projects').then(function(r) { return r.json(); })
       .then(function(d) {
         var el = document.getElementById('totalProjects');

@@ -1,4 +1,4 @@
-// TaskList Module - Simplified
+// TaskList - Fixed
 (function() {
   var API_URL = '';
   var tasks = [];
@@ -8,10 +8,11 @@
     var container = document.getElementById('taskList');
     if (!container) return;
     
-    // 过滤
     var filtered = tasks;
     if (currentFilter !== 'all') {
-      filtered = tasks.filter(function(t) { return t.status === currentFilter; });
+      filtered = tasks.filter(function(t) { 
+        return t.status === currentFilter || (currentFilter === 'in_progress' && t.status === 'running');
+      });
     }
     
     if (filtered.length === 0) {
@@ -22,8 +23,8 @@
     var html = '';
     filtered.forEach(function(t) {
       var s = t.status || 'pending';
-      var icon = s === 'completed' ? '✓' : s === 'in_progress' ? '◐' : s === 'failed' ? '✗' : '○';
-      var text = s === 'completed' ? '已完成' : s === 'in_progress' ? '进行中' : s === 'failed' ? '失败' : '待处理';
+      var icon = s === 'completed' ? '✓' : s === 'in_progress' || s === 'running' ? '◐' : s === 'failed' ? '✗' : '○';
+      var text = s === 'completed' ? '已完成' : s === 'in_progress' || s === 'running' ? '进行中' : s === 'failed' ? '失败' : '待处理';
       
       html += '<div class="task-item">';
       html += '<span class="task-status">' + icon + '</span>';
@@ -40,7 +41,6 @@
   window.filterTasks = function(f) {
     currentFilter = f;
     render();
-    // 更新按钮状态
     document.querySelectorAll('.filter-btn').forEach(function(b) {
       b.classList.toggle('active', b.dataset.filter === f);
     });
