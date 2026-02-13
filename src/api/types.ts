@@ -134,7 +134,7 @@ export interface WsMessage {
 
 export interface TaskUpdatePayload {
   taskId: string;
-  status: Task['status'];
+  status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped' | 'assigned' | 'in_progress';
   result?: string;
 }
 

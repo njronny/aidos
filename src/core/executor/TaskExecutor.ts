@@ -4,6 +4,8 @@ import * as path from 'path';
 import { Task, TaskStatus, TaskResult, TaskPriority } from '../../types';
 import { Notifier } from '../notifier/Notifier';
 import { GitOps } from '../gitops/GitOps';
+import { TaskRepository } from '../../infrastructure/database/repositories/task.repository';
+import { wsManager } from '../../api/websocket';
 
 /**
  * Executor Types
@@ -372,11 +374,13 @@ export default ${task.name.replace(/\s+/g, '')}Service;
  * Task Executor - 任务执行器
  * 检测到新任务后，自动spawn代理执行开发任务
  * 支持代码生成、Git提交
+ * 实时更新数据库和推送WebSocket消息
  */
 export class TaskExecutor {
   private config: TaskExecutorConfig;
   private notifier: Notifier;
   private gitOps: GitOps;
+  private taskRepository: TaskRepository;
   private runningTasks: Map<string, ExecutorTask> = new Map();
   private completedTasks: Map<string, ExecutorTask> = new Map();
   private taskHandlers: Map<string, (task: Task) => Promise<TaskResult>> = new Map();
@@ -384,7 +388,8 @@ export class TaskExecutor {
   constructor(
     config: Partial<TaskExecutorConfig> = {},
     notifier?: Notifier,
-    gitOps?: GitOps
+    gitOps?: GitOps,
+    taskRepository?: TaskRepository
   ) {
     this.config = {
       enableGitCommit: config.enableGitCommit ?? true,
@@ -398,6 +403,7 @@ export class TaskExecutor {
 
     this.notifier = notifier ?? new Notifier();
     this.gitOps = gitOps ?? new GitOps({ repoPath: process.cwd() });
+    this.taskRepository = taskRepository ?? new TaskRepository();
   }
 
   /**
@@ -408,10 +414,58 @@ export class TaskExecutor {
   }
 
   /**
-   * Execute a task
+   * Execute task immediately - 创建任务后立即执行
+   * 1. 在数据库中创建任务
+   * 2. 立即开始执行
+   * 3. 实时更新任务状态
+   * 4. 执行完成后更新数据库
+   */
+  async executeImmediately(
+    projectId: string,
+    requirementId: string | undefined,
+    title: string,
+    description: string,
+    priority: number = 1,
+    agentType?: string
+  ): Promise<TaskResult> {
+    console.log(`[TaskExecutor] Executing immediately: ${title}`);
+
+    // Create task in database first
+    const createdTask = await this.taskRepository.create({
+      projectId,
+      requirementId,
+      title,
+      description,
+      status: 'pending',
+      priority,
+      agentType,
+    });
+
+    console.log(`[TaskExecutor] Created task in database: ${createdTask.id}`);
+
+    // Convert to Task type for executor
+    const task: Task = {
+      id: createdTask.id,
+      name: title,
+      description: description || '',
+      status: TaskStatus.PENDING,
+      priority: priority as TaskPriority,
+      dependencies: [],
+      createdAt: new Date(),
+      retries: 0,
+      maxRetries: this.config.maxRetries,
+    };
+
+    // Execute task immediately (synchronous)
+    return this.execute(task);
+  }
+
+  /**
+   * Execute a task - 同步执行并实时更新数据库和WebSocket
    */
   async execute(task: Task): Promise<TaskResult> {
     console.log(`[TaskExecutor] Executing task: ${task.name}`);
+    const startTime = Date.now();
 
     // Create executor task
     const executorTask: ExecutorTask = {
@@ -431,6 +485,12 @@ export class TaskExecutor {
     this.runningTasks.set(executorTask.id, executorTask);
 
     try {
+      // Update task status to running in database
+      await this.updateTaskInDatabase(task.id, 'running');
+
+      // Push WebSocket update - task started
+      this.pushTaskUpdate(task.id, 'running');
+
       // Execute task based on description/action
       const result = await this.performTaskExecution(task);
 
@@ -442,6 +502,16 @@ export class TaskExecutor {
 
       this.runningTasks.delete(executorTask.id);
       this.completedTasks.set(executorTask.id, executorTask);
+
+      // Update task status to completed in database
+      const duration = executorTask.duration;
+      await this.updateTaskInDatabase(task.id, 'completed', {
+        result: { output: result.output, artifacts: result.artifacts, gitCommit: result.gitCommit },
+        actualDuration: duration,
+      });
+
+      // Push WebSocket update - task completed
+      this.pushTaskUpdate(task.id, 'completed', result.output);
 
       // Notify completion
       await this.notifier.notify(
@@ -457,24 +527,73 @@ export class TaskExecutor {
         duration: executorTask.duration,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       executorTask.status = 'failed';
-      executorTask.error = error instanceof Error ? error.message : String(error);
+      executorTask.error = errorMessage;
       executorTask.completedAt = new Date();
       executorTask.duration = executorTask.completedAt.getTime() - executorTask.startedAt!.getTime();
 
       this.runningTasks.delete(executorTask.id);
       this.completedTasks.set(executorTask.id, executorTask);
 
+      // Update task status to failed in database
+      await this.updateTaskInDatabase(task.id, 'failed', { errorLog: errorMessage });
+
+      // Push WebSocket update - task failed
+      this.pushTaskUpdate(task.id, 'failed', errorMessage);
+
       await this.notifier.notifyError(
-        `Task "${task.name}" failed: ${executorTask.error}`,
+        `Task "${task.name}" failed: ${errorMessage}`,
         'TaskExecutor'
       );
 
       return {
         success: false,
-        output: executorTask.error,
+        output: errorMessage,
         duration: executorTask.duration,
       };
+    }
+  }
+
+  /**
+   * Update task in database
+   */
+  private async updateTaskInDatabase(
+    taskId: string,
+    status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped',
+    additionalData?: { result?: Record<string, unknown>; errorLog?: string; actualDuration?: number }
+  ): Promise<void> {
+    try {
+      const updateInput: any = { status };
+      
+      if (status === 'running') {
+        updateInput.startedAt = new Date();
+      } else if (status === 'completed' || status === 'failed') {
+        updateInput.completedAt = new Date();
+      }
+      
+      if (additionalData) {
+        if (additionalData.result) updateInput.result = additionalData.result;
+        if (additionalData.errorLog) updateInput.errorLog = additionalData.errorLog;
+        if (additionalData.actualDuration) updateInput.actualDuration = additionalData.actualDuration;
+      }
+
+      await this.taskRepository.update(taskId, updateInput);
+      console.log(`[TaskExecutor] Updated task ${taskId} status to: ${status}`);
+    } catch (error) {
+      console.error(`[TaskExecutor] Failed to update task in database:`, error);
+    }
+  }
+
+  /**
+   * Push task update via WebSocket
+   */
+  private pushTaskUpdate(taskId: string, status: string, result?: string): void {
+    try {
+      wsManager.pushTaskUpdate(taskId, status, result);
+      console.log(`[TaskExecutor] WebSocket push: task ${taskId} status -> ${status}`);
+    } catch (error) {
+      console.error(`[TaskExecutor] Failed to push WebSocket update:`, error);
     }
   }
 
