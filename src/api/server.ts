@@ -12,6 +12,7 @@ import { getWorkflowService } from '../core/workflow';
 import { dataStore } from './store';
 import { initializeDatabase } from '../infrastructure/database';
 import { getMetricsService, CoreMetricName } from '../core/monitoring';
+import { TaskWorker } from '../core/worker/TaskWorker';
 
 // Extend FastifyRequest to include startTime
 declare module 'fastify' {
@@ -50,6 +51,11 @@ async function startServer() {
     // 初始化数据库
     await initializeDatabase();
     console.log('Database initialized');
+
+    // 启动后台任务执行器
+    const taskWorker = new TaskWorker();
+    taskWorker.start();
+    console.log('[Server] TaskWorker started');
 
     // Register CORS
     await fastify.register(cors, {
