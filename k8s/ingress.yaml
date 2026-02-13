@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aidos-api-ingress
+  namespace: aidos
+  labels:
+    app: aidos
+    component: api
+  annotations:
+    # Nginx Ingress Controller 注解
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    
+    # CORS 配置
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+    
+    # WebSocket 支持
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    
+    # 重试配置
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout invalid_header http_500 http_502 http_503 http_504"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"
+spec:
+  ingressClassName: nginx
+  rules:
+    # 生产环境域名
+    - host: aidos.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aidos-api
+                port:
+                  number: 80
+  # TLS 配置 (生产环境必须启用)
+  # tls:
+  #   - hosts:
+  #       - aidos.example.com
+  #     secretName: aidos-tls-secret
+
+---
+# 开发环境 Ingress (可选)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aidos-api-ingress-dev
+  namespace: aidos
+  labels:
+    app: aidos
+    component: api
+    environment: dev
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: aidos-dev.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aidos-api
+                port:
+                  number: 80

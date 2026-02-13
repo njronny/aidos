@@ -1,0 +1,72 @@
+# ============================================
+# Aidos Docker Build 优化
+# 排除不需要的文件
+# ============================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# 测试和文档
+coverage
+.nyc_output
+test-results
+*.test.ts
+*.spec.ts
+e2e
+docs
+*.md
+!README.md
+
+# 构建产物
+dist
+build
+.cache
+
+# 开发工具
+.eslintrc.json
+.eslintcache
+.prettierrc
+.prettierignore
+tsconfig.tsbuildinfo
+
+# Kubernetes (单独管理)
+kubernetes
+k8s
+
+# 日志和临时文件
+logs
+*.log
+tmp
+temp
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
