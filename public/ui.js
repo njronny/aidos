@@ -1,3 +1,4 @@
+var API_URL = "";
 /**
  * AIDOS Web UI - Enhanced UI Module
  * 

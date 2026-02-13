@@ -26,9 +26,16 @@
         app.classList.remove('hidden');
         app.style.display = 'block';
       }
-      // 加载数据
-      if (typeof Dashboard !== 'undefined' && Dashboard.refresh) Dashboard.refresh();
-      if (typeof loadProjects === 'function') loadProjects();
+      // 加载所有数据
+      if (window.Dashboard && window.Dashboard.refresh) {
+        window.Dashboard.refresh();
+      }
+      if (window.loadProjects) {
+        window.loadProjects();
+      }
+      if (window.TaskList && window.TaskList.refresh) {
+        window.TaskList.refresh();
+      }
     },
     
     checkLogin: function() {
@@ -39,7 +46,6 @@
   };
   
   document.addEventListener('DOMContentLoaded', function() {
-    // 检查是否已登录
     Login.checkLogin();
     
     var form = document.getElementById('loginForm');

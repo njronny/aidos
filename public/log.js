@@ -1,3 +1,4 @@
+var API_URL = "";
 /**
  * Log Module
  * Displays execution logs

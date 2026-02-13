@@ -1,3 +1,4 @@
+var API_URL = "";
 /**
  * Flowchart Module
  * Displays task workflow using Mermaid.js

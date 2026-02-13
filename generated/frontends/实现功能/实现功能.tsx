@@ -34,7 +34,7 @@ export const 实现功能: React.FC<实现功能Props> = ({
   return (
     <div className={`${className} 实现功能`}>
       <h2>实现功能</h2>
-      <p>实现计算器功能开发的功能</p>
+      <p>实现开发俄罗斯方块游戏的功能</p>
     </div>
   );
 };

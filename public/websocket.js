@@ -1,3 +1,4 @@
+var API_URL = "";
 /**
  * WebSocket Module
  * Handles WebSocket connection and message handling for real-time task updates
