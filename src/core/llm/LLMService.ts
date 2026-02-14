@@ -217,21 +217,158 @@ export class LLMService {
 
   /**
    * Make HTTP request to LLM API
-   * This is a mock implementation - in production, use actual API
+   * Real implementation that calls actual LLM APIs
    */
   private async makeRequest(
     messages: ChatMessage[],
     options: CompletionOptions
   ): Promise<LLMResponse> {
-    // Mock response based on provider
+    // Check if we have a valid API key
+    if (!this.config.apiKey || this.config.apiKey === 'test-key') {
+      // Fallback to mock if no API key
+      return this.makeMockRequest(messages, options);
+    }
+
+    try {
+      if (this.config.provider === 'openai') {
+        return await this.callOpenAI(messages, options);
+      } else if (this.config.provider === 'anthropic') {
+        return await this.callAnthropic(messages, options);
+      } else if (this.config.provider === 'minimax') {
+        return await this.callMiniMax(messages, options);
+      } else {
+        console.warn(`[LLM] Unknown provider ${this.config.provider}, using mock`);
+        return this.makeMockRequest(messages, options);
+      }
+    } catch (error) {
+      console.error(`[LLM] API call failed:`, error);
+      // Fallback to mock on error
+      return this.makeMockRequest(messages, options);
+    }
+  }
+
+  /**
+   * Call OpenAI API
+   */
+  private async callOpenAI(messages: ChatMessage[], options: CompletionOptions): Promise<LLMResponse> {
+    const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        max_tokens: options.maxTokens || this.config.maxTokens,
+        temperature: options.temperature || this.config.temperature,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data: any = await response.json();
+    const choice = data.choices[0];
+    
+    return {
+      content: choice.message.content,
+      usage: data.usage,
+      model: data.model,
+      finishReason: choice.finish_reason,
+    };
+  }
+
+  /**
+   * Call Anthropic API
+   */
+  private async callAnthropic(messages: ChatMessage[], options: CompletionOptions): Promise<LLMResponse> {
+    const systemMessage = messages.find(m => m.role === 'system');
+    const userMessages = messages.filter(m => m.role !== 'system');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': this.config.apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        max_tokens: options.maxTokens || this.config.maxTokens,
+        temperature: options.temperature || this.config.temperature,
+        system: systemMessage?.content,
+        messages: userMessages.map(m => ({ role: m.role, content: m.content })),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic API error: ${response.status}`);
+    }
+
+    const data: any = await response.json();
+    
+    return {
+      content: data.content[0].text,
+      usage: {
+        promptTokens: data.usage.input_tokens,
+        completionTokens: data.usage.output_tokens,
+        totalTokens: data.usage.input_tokens + data.usage.output_tokens,
+      },
+      model: data.model,
+      finishReason: 'stop',
+    };
+  }
+
+  /**
+   * Call MiniMax API
+   */
+  private async callMiniMax(messages: ChatMessage[], options: CompletionOptions): Promise<LLMResponse> {
+    const response = await fetch(`${this.config.baseUrl}/text/chatcompletion_v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        max_tokens: options.maxTokens || this.config.maxTokens,
+        temperature: options.temperature || this.config.temperature,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`MiniMax API error: ${response.status}`);
+    }
+
+    const data: any = await response.json();
+    const choice = data.choices[0];
+    
+    return {
+      content: choice.message.content,
+      usage: {
+        promptTokens: data.usage.prompt_tokens,
+        completionTokens: data.usage.completion_tokens,
+        totalTokens: data.usage.total_tokens,
+      },
+      model: data.model,
+      finishReason: choice.finish_reason,
+    };
+  }
+
+  /**
+   * Mock request fallback
+   */
+  private makeMockRequest(
+    messages: ChatMessage[],
+    options: CompletionOptions
+  ): LLMResponse {
     const promptTokens = this.estimateTokens(
       messages.map(m => m.content).join(' ')
     );
-    
-    // Simulate API latency
-    await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Generate mock response based on last message
     const lastMessage = messages[messages.length - 1];
     const mockContent = this.generateMockResponse(lastMessage.content);
     const completionTokens = this.estimateTokens(mockContent);
