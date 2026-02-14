@@ -13,6 +13,7 @@ import { exportRoutes } from './routes/export';
 import { batchRoutes } from './routes/batch';
 import { qualityRoutes } from './routes/quality';
 import { monitoringRoutes } from './routes/monitoring';
+import { requirementsAnalyzerRoutes } from './routes/requirements-analyzer';
 import { publicRoute, authMiddleware } from './auth';
 import { getWorkflowService } from '../core/workflow';
 import { dataStore } from './store';
@@ -215,6 +216,7 @@ async function startServer() {
     await fastify.register(batchRoutes, { prefix: '/api' });
     await fastify.register(qualityRoutes, { prefix: '/api' });
     await fastify.register(monitoringRoutes, { prefix: '/api' });
+    await fastify.register(requirementsAnalyzerRoutes, { prefix: '/api' });
     // Health check
     fastify.get('/health', async (request, reply) => {
       return {
