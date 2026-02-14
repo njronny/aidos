@@ -1,10 +1,21 @@
 /**
  * TaskWorker - 后台任务执行器
  * 负责检查待处理任务并分配给代理执行
+ * 集成 AgentPool 使用6个专业代理
  */
 
 import { EventEmitter } from 'events';
+import { Queue, Worker } from 'bullmq';
 import { dataStore } from '../../api/store';
+import { AgentPool, Agent, AgentType, AgentStatus } from '../agents';
+import { WorkflowService } from '../workflow';
+
+// Redis 连接配置
+const redisConnection = {
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379'),
+  password: process.env.REDIS_PASSWORD || undefined,
+};
 
 export interface Task {
   id: string;
@@ -15,23 +26,173 @@ export interface Task {
   agentId?: string;
   result?: string;
   errorLog?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface Agent {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  currentTaskId?: string;
+export interface RetryConfig {
+  maxRetries: number;        // 最大重试次数
+  baseDelayMs: number;        // 基础延迟（毫秒）
+  maxDelayMs: number;         // 最大延迟（毫秒）
+  backoffMultiplier: number; // 退避倍数
 }
 
 export class TaskWorker extends EventEmitter {
   private running: boolean = false;
   private intervalId?: NodeJS.Timeout;
   private pollInterval: number = 5000; // 5秒检查一次
+  private taskTimeoutMs: number = 5 * 60 * 1000; // 任务超时5分钟
+  private agentPool: AgentPool;
+  private workflowService: WorkflowService;
+  
+  // 重试配置
+  private retryConfig: RetryConfig = {
+    maxRetries: 3,
+    baseDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+  };
+  
+  // 任务重试计数
+  private taskRetryCount: Map<string, number> = new Map();
+  
+  // BullMQ 队列（用于持久化）
+  private taskQueue: Queue;
+  private worker?: Worker;
 
-  constructor() {
+  constructor(options?: { taskTimeoutMs?: number; agentPool?: AgentPool; retryConfig?: Partial<RetryConfig> }) {
     super();
+    if (options?.taskTimeoutMs) {
+      this.taskTimeoutMs = options.taskTimeoutMs;
+    }
+    if (options?.retryConfig) {
+      this.retryConfig = { ...this.retryConfig, ...options.retryConfig };
+    }
+    
+    // 使用传入的 AgentPool 或从 WorkflowService 获取
+    this.agentPool = options?.agentPool || this.getAgentPool();
+    this.workflowService = this.getWorkflowService();
+    
+    // 初始化 BullMQ 队列
+    this.taskQueue = new Queue('aidos-tasks', { connection: redisConnection });
+    
+    // 设置任务处理 worker
+    this.setupWorker();
+  }
+  
+  /**
+   * 设置 BullMQ Worker 处理任务
+   */
+  private setupWorker(): void {
+    this.worker = new Worker('aidos-tasks', async (job) => {
+      const task = job.data as Task;
+      console.log(`[TaskWorker] Processing queued task: ${task.title}`);
+      
+      const agent = await this.findAvailableAgent();
+      if (!agent) {
+        throw new Error('No available agent');
+      }
+      
+      await this.assignTaskToAgent(task, agent);
+      await this.executeTask(task, agent);
+      
+      return { success: true, taskId: task.id };
+    }, {
+      connection: redisConnection,
+      concurrency: 5,
+    });
+    
+    this.worker.on('completed', (job) => {
+      console.log(`[TaskWorker] Job ${job.id} completed`);
+    });
+    
+    this.worker.on('failed', (job, err) => {
+      console.error(`[TaskWorker] Job ${job?.id} failed:`, err.message);
+    });
+  }
+  
+  private getAgentPool(): AgentPool {
+    // 通过 WorkflowService 获取 AgentPool
+    const workflowService = this.getWorkflowService();
+    return workflowService.getAgentPool();
+  }
+  
+  private getWorkflowService(): WorkflowService {
+    const { getWorkflowService } = require('../workflow');
+    return getWorkflowService();
+  }
+  
+  /**
+   * 计算重试延迟（指数退避）
+   */
+  private calculateRetryDelay(taskId: string): number {
+    const retryCount = this.taskRetryCount.get(taskId) || 0;
+    const delay = Math.min(
+      this.retryConfig.baseDelayMs * Math.pow(this.retryConfig.backoffMultiplier, retryCount),
+      this.retryConfig.maxDelayMs
+    );
+    return delay;
+  }
+  
+  /**
+   * 检查任务是否需要重试
+   */
+  private shouldRetry(taskId: string): boolean {
+    const retryCount = this.taskRetryCount.get(taskId) || 0;
+    return retryCount < this.retryConfig.maxRetries;
+  }
+  
+  /**
+   * 增加任务重试计数
+   */
+  private incrementRetryCount(taskId: string): number {
+    const current = this.taskRetryCount.get(taskId) || 0;
+    const newCount = current + 1;
+    this.taskRetryCount.set(taskId, newCount);
+    return newCount;
+  }
+  
+  /**
+   * 清除任务重试计数
+   */
+  private clearRetryCount(taskId: string): void {
+    this.taskRetryCount.delete(taskId);
+  }
+  
+  /**
+   * 将任务添加到持久化队列
+   */
+  async enqueueTask(task: Task): Promise<void> {
+    await this.taskQueue.add('process-task', task, {
+      jobId: task.id,
+      removeOnComplete: true,
+      removeOnFail: 100,
+    });
+    console.log(`[TaskWorker] Task ${task.id} added to queue`);
+  }
+  
+  /**
+   * 获取队列状态
+   */
+  async getQueueStatus(): Promise<{ waiting: number; active: number; completed: number; failed: number }> {
+    const counts = await this.taskQueue.getJobCounts();
+    return {
+      waiting: counts.waiting || 0,
+      active: counts.active || 0,
+      completed: counts.completed || 0,
+      failed: counts.failed || 0,
+    };
+  }
+  
+  /**
+   * 关闭队列和 worker
+   */
+  async shutdown(): Promise<void> {
+    await this.taskQueue.close();
+    if (this.worker) {
+      await this.worker.close();
+    }
+    console.log('[TaskWorker] Queue and worker closed');
   }
 
   start(): void {
@@ -62,6 +223,27 @@ export class TaskWorker extends EventEmitter {
 
   isRunning(): boolean {
     return this.running;
+  }
+
+  /**
+   * 健康检查：检测并恢复所有卡住的任务
+   */
+  async healthCheck(): Promise<{ recovered: number; stuck: Task[] }> {
+    const runningTasks = await this.findRunningTasks();
+    const stuckTasks: Task[] = [];
+    
+    for (const task of runningTasks) {
+      const updatedAt = task.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+      const taskAge = Date.now() - updatedAt;
+      
+      if (taskAge > this.taskTimeoutMs) {
+        stuckTasks.push(task);
+        await this.updateTaskStatus(task.id, 'pending');
+        console.log(`[TaskWorker] Health check: recovered stuck task ${task.title}`);
+      }
+    }
+    
+    return { recovered: stuckTasks.length, stuck: stuckTasks };
   }
 
   private async pollTasks(): Promise<void> {
@@ -130,19 +312,51 @@ export class TaskWorker extends EventEmitter {
 
   async findAvailableAgent(): Promise<Agent | null> {
     try {
-      const agents = await dataStore.getAllAgents();
-      const idleAgent = agents?.find((a: any) => a.status === 'idle');
-      return idleAgent || null;
+      // 使用 AgentPool 获取可用代理（支持6个专业代理）
+      const availableAgents = this.agentPool.getIdleAgents();
+      if (availableAgents.length > 0) {
+        // 按代理类型选择合适的代理
+        const taskType = this.getTaskType('');
+        const preferredType = this.mapTaskTypeToAgentType(taskType);
+        
+        // 优先选择匹配类型的代理
+        const matched = availableAgents.find((a: Agent) => a.type === preferredType);
+        return matched || availableAgents[0];
+      }
+      
+      return null;
     } catch (error) {
       console.error('[TaskWorker] Find agent error:', error);
       return null;
+    }
+  }
+  
+  /**
+   * 将任务类型映射到代理类型
+   */
+  private mapTaskTypeToAgentType(taskType: string): string {
+    switch (taskType) {
+      case 'code':
+        return 'full_stack_developer';
+      case 'test':
+        return 'qa_engineer';
+      case 'review':
+        return 'architect';
+      case 'pm':
+        return 'project_manager';
+      case 'product':
+        return 'product_manager';
+      case 'db':
+        return 'database_expert';
+      default:
+        return 'full_stack_developer';
     }
   }
 
   async assignTaskToAgent(task: Task, agent: Agent): Promise<void> {
     try {
       await this.updateTaskStatus(task.id, 'in_progress');
-      console.log(`[TaskWorker] Assigned task ${task.id} to agent ${agent.name}`);
+      console.log(`[TaskWorker] Assigned task ${task.id} to agent ${agent.name} (${agent.type})`);
     } catch (error) {
       console.error('[TaskWorker] Assign task error:', error);
     }
@@ -150,30 +364,70 @@ export class TaskWorker extends EventEmitter {
 
   async executeTask(task: Task, agent: Agent): Promise<void> {
     try {
-      console.log(`[TaskWorker] Executing task: ${task.title}`);
+      console.log(`[TaskWorker] Executing task: ${task.title} with agent ${agent.name}`);
       
-      const result = await this.runAgentTask(task, agent);
+      // 使用 AgentPool 分配并执行任务（自动管理代理状态）
+      const taskType = this.getTaskType(task.title);
+      const result = await this.agentPool.assignTask(taskType, {
+        taskId: task.id,
+        title: task.title,
+        description: task.description,
+      }, agent.id);
       
       // 更新任务结果
       await dataStore.updateTask(task.id, {
-        status: 'completed',
+        status: result.success ? 'completed' : 'failed',
         result: JSON.stringify(result),
       } as any);
       
-      // 释放代理
-      await this.updateAgentStatus(agent.id, 'idle');
-      
-      console.log(`[TaskWorker] Task completed: ${task.id}`);
-      this.emit('taskCompleted', task);
+      if (result.success) {
+        this.clearRetryCount(task.id);
+        console.log(`[TaskWorker] Task completed: ${task.id}`);
+        this.emit('taskCompleted', task);
+      } else {
+        // 执行失败，尝试重试
+        await this.handleTaskFailure(task, agent, result.error || 'Unknown error');
+      }
       
     } catch (error: any) {
       console.error(`[TaskWorker] Execute task error:`, error);
+      await this.handleTaskFailure(task, agent, error.message);
+    }
+  }
+  
+  /**
+   * 处理任务失败（带重试机制）
+   */
+  private async handleTaskFailure(task: Task, agent: Agent, error: string): Promise<void> {
+    if (this.shouldRetry(task.id)) {
+      const retryCount = this.incrementRetryCount(task.id);
+      const delay = this.calculateRetryDelay(task.id);
+      
+      console.log(`[TaskWorker] Task ${task.id} failed, retry ${retryCount}/${this.retryConfig.maxRetries} in ${delay}ms: ${error}`);
+      
+      // 更新任务状态为 pending 并设置重试信息
+      await dataStore.updateTask(task.id, {
+        status: 'pending',
+        errorLog: `Retry ${retryCount}: ${error}`,
+      } as any);
+      
+      // 延迟后重新加入队列
+      setTimeout(async () => {
+        await this.processTask(task);
+      }, delay);
+      
+      this.emit('taskRetry', { task, retryCount, delay, error });
+    } else {
+      // 超过最大重试次数，标记为失败
+      console.log(`[TaskWorker] Task ${task.id} failed after ${this.retryConfig.maxRetries} retries`);
       
       await dataStore.updateTask(task.id, {
         status: 'failed',
+        errorLog: `Failed after ${this.retryConfig.maxRetries} retries: ${error}`,
       } as any);
       
-      await this.updateAgentStatus(agent.id, 'idle');
+      this.clearRetryCount(task.id);
+      this.emit('taskFailed', { task, error });
     }
   }
 
@@ -237,7 +491,19 @@ export class TaskWorker extends EventEmitter {
   }
 
   private async checkTaskCompletion(task: Task): Promise<void> {
-    // 可以添加外部检查逻辑
+    // 自愈机制：检测卡住的任务并自动恢复
+    const updatedAt = task.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+    const taskAge = Date.now() - updatedAt;
+    
+    // 如果任务处于 in_progress 状态超过超时时间，认为是卡住了
+    if (task.status === 'in_progress' && taskAge > this.taskTimeoutMs) {
+      console.log(`[TaskWorker] Task stuck detected: ${task.title} (age: ${Math.round(taskAge/1000)}s)`);
+      
+      // 自动重置为 pending，让系统重新处理
+      await this.updateTaskStatus(task.id, 'pending');
+      console.log(`[TaskWorker] Auto-recovered stuck task: ${task.title}`);
+      this.emit('taskRecovered', task);
+    }
   }
 
   async updateTaskStatus(taskId: string, status: string): Promise<void> {

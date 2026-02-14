@@ -30,9 +30,6 @@
           <div class="login-error hidden" id="loginError"></div>
           <button type="submit" class="login-btn" id="loginBtn">登录</button>
         </form>
-        <div class="login-footer">
-          默认账户: admin / aidos123
-        </div>
       </div>
     </div>
   </div>
@@ -96,6 +93,18 @@
                 <div class="progress-fill" id="progressFill" style="width: 0%"></div>
               </div>
               <div class="progress-text" id="progressPercent">0%</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">成功率</div>
+              <div class="metric-value metric-success" id="successRate">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">代理状态</div>
+              <div class="metric-value" id="agentStatus">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">内存</div>
+              <div class="metric-value" id="memoryUsage">-</div>
             </div>
           </div>
         </div>

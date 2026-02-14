@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
@@ -13,6 +14,7 @@ import { dataStore } from './store';
 import { initializeDatabase } from '../infrastructure/database';
 import { getMetricsService, CoreMetricName } from '../core/monitoring';
 import { TaskWorker } from '../core/worker/TaskWorker';
+import { SelfHealingService, HealingStrategy, AlertSeverity, AlertCondition } from '../core/monitoring';
 
 // Extend FastifyRequest to include startTime
 declare module 'fastify' {
@@ -57,6 +59,70 @@ async function startServer() {
     taskWorker.start();
     console.log('[Server] TaskWorker started');
 
+    // 初始化自愈服务
+    const selfHealingService = new SelfHealingService({
+      enableAutoHealing: true,
+      maxRetries: 3,
+      retryDelayMs: 5000,
+      actionTimeoutMs: 30000,
+    });
+    
+    // 注册编译失败自动重试策略
+    const buildFailureStrategy: HealingStrategy = {
+      id: 'auto-rebuild-on-failure',
+      name: '编译失败自动重试',
+      description: '检测到编译失败后自动重新编译',
+      triggerMetric: 'build_failure',
+      triggerSeverity: AlertSeverity.ERROR,
+      triggerCondition: { operator: 'eq', threshold: 1 },
+      actions: [
+        {
+          type: 'command',
+          command: 'cd /root/.openclaw/workspace/aidos && npm run build',
+          timeout: 120000,
+          retryable: true,
+        },
+      ],
+      enabled: true,
+      cooldownMs: 60000, // 1分钟冷却
+    };
+    selfHealingService.registerStrategy(buildFailureStrategy);
+    
+    // 注册任务卡住自动恢复策略
+    const stuckTaskStrategy: HealingStrategy = {
+      id: 'auto-recover-stuck-tasks',
+      name: '任务卡住自动恢复',
+      description: '检测到任务卡住超过5分钟后自动恢复',
+      triggerMetric: 'stuck_task',
+      triggerSeverity: AlertSeverity.WARNING,
+      triggerCondition: { operator: 'gt', threshold: 0 },
+      actions: [
+        {
+          type: 'script',
+          script: 'taskWorker.healthCheck()',
+          retryable: true,
+        },
+      ],
+      enabled: true,
+      cooldownMs: 30000, // 30秒冷却
+    };
+    selfHealingService.registerStrategy(stuckTaskStrategy);
+    
+    // 定期执行健康检查
+    const healthCheckInterval = setInterval(async () => {
+      try {
+        // 检查任务超时
+        const health = await taskWorker.healthCheck();
+        if (health.recovered > 0) {
+          console.log(`[SelfHealing] Recovered ${health.recovered} stuck tasks`);
+        }
+      } catch (error) {
+        console.error('[SelfHealing] Health check error:', error);
+      }
+    }, 30000); // 每30秒检查一次
+    
+    console.log('[Server] SelfHealingService initialized');
+
     // Register CORS
     await fastify.register(cors, {
       origin: true,
@@ -71,17 +137,23 @@ async function startServer() {
     // Register WebSocket
     await fastify.register(websocket);
 
+    // WebSocket 客户端管理
+    const wsClients = new Set();
+    
     // WebSocket endpoint
     fastify.get('/ws', { websocket: true }, (socket, req) => {
       const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       console.log(`WebSocket client connected: ${clientId}`);
+      wsClients.add(socket);
 
       socket.on('close', () => {
         console.log(`WebSocket client disconnected: ${clientId}`);
+        wsClients.delete(socket);
       });
 
       socket.on('error', (error) => {
         console.error(`WebSocket error for ${clientId}:`, error);
+        wsClients.delete(socket);
       });
 
       // Send welcome message
@@ -91,6 +163,20 @@ async function startServer() {
         timestamp: new Date().toISOString(),
       }));
     });
+    
+    // 广播消息到所有 WebSocket 客户端
+    function broadcastToClients(type: string, payload: any) {
+      const message = JSON.stringify({ type, payload, timestamp: new Date().toISOString() });
+      wsClients.forEach((client: any) => {
+        try {
+          if (client.readyState === 1) { // OPEN
+            client.send(message);
+          }
+        } catch (e) {
+          console.error('Broadcast error:', e);
+        }
+      });
+    }
 
     // Register public auth routes (no auth required)
     fastify.post('/api/auth/login', async (request, reply) => {
@@ -126,6 +212,51 @@ async function startServer() {
         message: 'Aidos API Server is running',
         timestamp: new Date().toISOString(),
       };
+    });
+
+    // 系统状态 API
+    fastify.get('/api/status', async (request, reply) => {
+      const workflowService = getWorkflowService();
+      const agentPool = workflowService.getAgentPool();
+      
+      // 获取代理状态
+      const agents = agentPool.getAllAgents().map(a => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        status: a.status,
+        currentTask: a.currentTask ? {
+          id: a.currentTask.id,
+          type: a.currentTask.type,
+        } : null,
+        completedTasksCount: a.completedTasks.length,
+      }));
+      
+      // 获取任务统计
+      const allTasks = await dataStore.getAllTasks();
+      const taskStats = {
+        total: allTasks?.length || 0,
+        pending: allTasks?.filter(t => t.status === 'pending').length || 0,
+        in_progress: allTasks?.filter(t => t.status === 'in_progress' || t.status === 'assigned').length || 0,
+        completed: allTasks?.filter(t => t.status === 'completed').length || 0,
+        failed: allTasks?.filter(t => t.status === 'failed').length || 0,
+      };
+      
+      // 计算成功率
+      const totalCompleted = taskStats.completed + taskStats.failed;
+      const successRate = totalCompleted > 0 ? Math.round((taskStats.completed / totalCompleted) * 100) : 100;
+      
+      return reply.send({
+        success: true,
+        data: {
+          agents,
+          tasks: taskStats,
+          successRate,
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          timestamp: new Date().toISOString(),
+        },
+      });
     });
 
     // API info
@@ -209,8 +340,8 @@ async function startServer() {
     });
 
     // Start server
-    const port = Number(process.env.PORT) || 3000;
-    const host = process.env.HOST || '0.0.0.0';
+    const port = Number(process.env.PORT) || Number(process.env.API_PORT) || 80;
+    const host = '0.0.0.0';
 
     await fastify.listen({ port, host });
     console.log(`🚀 Aidos API Server running at http://${host}:${port}`);

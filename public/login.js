@@ -8,11 +8,23 @@
     },
     
     login: function(username, password) {
-      if (username === 'admin' && password === 'aidos123') {
-        localStorage.setItem(this.tokenKey, 'demo_token_123');
-        return Promise.resolve({ success: true });
-      }
-      return Promise.resolve({ success: false, error: 'Invalid credentials' });
+      // 调用后端 API 验证
+      return fetch(API_URL + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success && data.data && data.data.token) {
+          localStorage.setItem(window.Login.tokenKey, data.data.token);
+          return { success: true };
+        }
+        return { success: false, error: data.error || '登录失败' };
+      })
+      .catch(function(err) {
+        return { success: false, error: err.message };
+      });
     },
     
     showMainApp: function() {
