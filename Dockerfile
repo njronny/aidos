@@ -27,7 +27,7 @@ WORKDIR /app
 
 # 设置环境变量
 ENV NODE_ENV=production \
-    PORT=3000 \
+    PORT=80 \
     LOG_LEVEL=info
 
 # 创建必要的目录并设置权限
@@ -46,11 +46,11 @@ COPY --chown=nodejs:nodejs tsconfig.json ./
 USER nodejs
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 80
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+    CMD node -e "require('http').get('http://localhost:80/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
 # 启动命令
 CMD ["node", "dist/index.js"]
