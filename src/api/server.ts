@@ -8,6 +8,7 @@ import { projectRoutes } from './routes/projects';
 import { requirementRoutes } from './routes/requirements';
 import { taskRoutes } from './routes/tasks';
 import { agentRoutes } from './routes/agents';
+import { analyticsRoutes } from './routes/analytics';
 import { publicRoute, authMiddleware } from './auth';
 import { getWorkflowService } from '../core/workflow';
 import { dataStore } from './store';
@@ -205,6 +206,7 @@ async function startServer() {
     await fastify.register(requirementRoutes, { prefix: '/api' });
     await fastify.register(taskRoutes, { prefix: '/api' });
     await fastify.register(agentRoutes, { prefix: '/api' });
+    await fastify.register(analyticsRoutes, { prefix: '/api' });
     // Health check
     fastify.get('/health', async (request, reply) => {
       return {
