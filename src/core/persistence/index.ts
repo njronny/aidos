@@ -5,3 +5,4 @@
 
 export { TaskStateManager, TaskStateSnapshot, TaskStateManagerConfig } from './TaskStateManager';
 export { CheckpointService, CheckpointData, CheckpointMetadata, CheckpointServiceConfig } from './CheckpointService';
+export { Database, DatabaseConfig, DatabaseType, QueryResult, Transaction } from './Database';
