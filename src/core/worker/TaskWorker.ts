@@ -12,6 +12,7 @@ import { WorkflowService } from '../workflow';
 import { TaskExecutor } from '../executor';
 import { GitOps } from '../gitops';
 import { AutoFix } from '../autofix';
+import { wsManager } from '../../api/websocket';
 
 // Redis 连接配置
 const redisConnection = {
@@ -544,6 +545,8 @@ export class TaskWorker extends EventEmitter {
   async updateTaskStatus(taskId: string, status: string): Promise<void> {
     try {
       await dataStore.updateTask(taskId, { status } as any);
+      // WebSocket 推送
+      wsManager.pushTaskUpdate(taskId, status);
     } catch (error) {
       console.error('[TaskWorker] Update task status error:', error);
     }
@@ -551,6 +554,8 @@ export class TaskWorker extends EventEmitter {
 
   async updateAgentStatus(agentId: string, status: string, taskId?: string): Promise<void> {
     console.log(`[TaskWorker] Agent ${agentId} -> ${status}`);
+    // WebSocket 推送
+    wsManager.pushAgentUpdate(agentId, status);
   }
 }
 
