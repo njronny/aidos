@@ -1,0 +1,66 @@
+name: E2E Tests
+
+on:
+  schedule:
+    # 每天凌晨 2 点运行
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_file:
+        description: 'Test file to run'
+        required: false
+        default: ''
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Start API server
+        run: |
+          PORT=80 node dist/src/api/server.js &
+          sleep 8
+
+      - name: Run E2E tests
+        run: |
+          if [ -n "${{ github.event.inputs.test_file }}" ]; then
+            npx playwright test ${{ github.event.inputs.test_file }} --reporter=html
+          else
+            npx playwright test --reporter=html
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots
+          path: |
+            test-results/**/ attachments/
+          retention-days: 7
