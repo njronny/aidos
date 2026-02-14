@@ -5,17 +5,17 @@ jest.mock('../services/...', () => ({
   // mock implementation
 }));
 
-describe('Test Task', () => {
+describe('Lifecycle Test Task', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('Core functionality', () => {
-    it('should test task successfully', async () => {
+    it('should lifecycle test task successfully', async () => {
       // Arrange
       const input = {
-        id: '5f88aacf-b487-48ee-b51f-0c241565dd9b',
-        name: 'Test Task',
+        id: 'bf681c7f-f298-477a-8360-20e1037b6b36',
+        name: 'Lifecycle Test Task',
       };
 
       // Act
