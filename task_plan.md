@@ -1,73 +1,47 @@
-# AIDOS 全自动开发 - 任务计划
+# AIDOS 开发计划 - Milestone 1: OpenClaw 集成
 
 ## 目标
-实现 AIDOS 全自动开发能力，无需人工干预完成代码开发。
+实现 AIDOS 调用 OpenClaw 执行任务的核心能力
 
-## 里程碑
+## 架构
 
-### ✅ Milestone 1: 代码执行沙箱 - 完成
-- **状态**: complete
-- **测试数**: 13
-- **功能**:
-  - JavaScript/TypeScript 安全执行
-  - Python 支持
-  - 超时控制
-  - 危险操作拦截
+```
+AIDOS → OpenClawExecutor → OpenClaw CLI/API
+                        ↓
+                   返回结果
 
-### ✅ Milestone 2: Git 自动化 + 错误修复 - 完成
-- **状态**: complete
-- **测试数**: 13
-- **功能**:
-  - Git 操作封装
-  - 自动 commit
-  - 分支管理
-  - 提交规范验证
-  - AutoFix 错误修复
+```
 
-### ✅ Milestone 3: 测试生成 + 测试执行 - 完成
-- **状态**: complete
-- **测试数**: 12
-- **功能**:
-  - 测试生成器
-  - Jest 集成
-  - 测试执行
-  - 覆盖率统计
+## 任务清单
 
-### ✅ Milestone 4: 任务执行引擎 - 完成
-- **状态**: complete
-- **测试数**: 8
-- **功能**:
-  - Workflow Engine
-  - 状态机
-  - 重试机制
-  - 事件驱动
+### 1.1 OpenClawExecutor ✅
+- [x] 调用本地 OpenClaw 执行任务
+- [x] 任务状态跟踪
+- [x] 结果回收
+- [x] 测试用例 (18 tests)
 
-### 🔴 Milestone 3: 测试生成 + 测试执行
-- **状态**: pending
-- **目标**: 自动生成测试并执行验证
-- **任务**:
-  1. 测试生成器
-  2. Jest 集成
-  3. 测试执行
-  4. 覆盖率统计
+### 1.2 TaskDistributor ✅
+- [x] 任务分发到 OpenClaw
+- [x] 负载均衡
+- [x] 故障转移
+- [x] 测试用例 (9 tests)
 
-### 🔴 Milestone 4: 任务执行引擎
-- **状态**: pending
-- **目标**: 端到端自动化流程
-- **任务**:
-  1. Workflow Engine
-  2. 状态机
-  3. 重试机制
-  4. 完成通知
+### 1.3 NodeRegistry ✅
+- [x] 节点注册
+- [x] 心跳检测
+- [x] 能力描述
+- [x] 测试用例 (17 tests)
+
+---
+
+## 开始时间
+2026-02-15
 
 ## 进度
 
-| Milestone | 状态 | 测试数 | 完成时间 |
-|-----------|------|--------|----------|
-| M1: 沙箱 | ✅ | 13 | 23:07 |
-| M2: Git+修复 | 🔴 in_progress | - | - |
-| M3: 测试 | 🔴 pending | - | - |
-| M4: 引擎 | 🔴 pending | - | - |
-
-## 开始时间
-2026-02-14 23:05
+| 任务 | 状态 | 测试 |
+|------|------|------|
+| OpenClawExecutor | ✅ 完成 | 18 |
+| TaskDistributor | ✅ 完成 | 9 |
+| NodeRegistry | ✅ 完成 | 17 |
+| **总计** | | **44** |
