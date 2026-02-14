@@ -11,6 +11,7 @@ import { agentRoutes } from './routes/agents';
 import { analyticsRoutes } from './routes/analytics';
 import { exportRoutes } from './routes/export';
 import { batchRoutes } from './routes/batch';
+import { qualityRoutes } from './routes/quality';
 import { publicRoute, authMiddleware } from './auth';
 import { getWorkflowService } from '../core/workflow';
 import { dataStore } from './store';
@@ -211,6 +212,7 @@ async function startServer() {
     await fastify.register(analyticsRoutes, { prefix: '/api' });
     await fastify.register(exportRoutes, { prefix: '/api' });
     await fastify.register(batchRoutes, { prefix: '/api' });
+    await fastify.register(qualityRoutes, { prefix: '/api' });
     // Health check
     fastify.get('/health', async (request, reply) => {
       return {
