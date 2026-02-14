@@ -9,6 +9,9 @@ import { Queue, Worker } from 'bullmq';
 import { dataStore } from '../../api/store';
 import { AgentPool, Agent, AgentType, AgentStatus } from '../agents';
 import { WorkflowService } from '../workflow';
+import { TaskExecutor } from '../executor';
+import { GitOps } from '../gitops';
+import { AutoFix } from '../autofix';
 
 // Redis 连接配置
 const redisConnection = {
@@ -59,6 +62,11 @@ export class TaskWorker extends EventEmitter {
   // BullMQ 队列（用于持久化）
   private taskQueue: Queue;
   private worker?: Worker;
+  
+  // TaskExecutor 用于真实任务执行（含 Git 自动化）
+  private taskExecutor: TaskExecutor;
+  private gitOps: GitOps;
+  private autoFix: AutoFix;
 
   constructor(options?: { taskTimeoutMs?: number; agentPool?: AgentPool; retryConfig?: Partial<RetryConfig> }) {
     super();
@@ -72,6 +80,27 @@ export class TaskWorker extends EventEmitter {
     // 使用传入的 AgentPool 或从 WorkflowService 获取
     this.agentPool = options?.agentPool || this.getAgentPool();
     this.workflowService = this.getWorkflowService();
+    
+    // 初始化 GitOps
+    this.gitOps = new GitOps({
+      repoPath: process.cwd(),
+      authorName: 'AIDOS',
+      authorEmail: 'aidos@dev.local',
+    });
+    
+    // 初始化 TaskExecutor（包含 Git 自动化）
+    this.taskExecutor = new TaskExecutor({
+      enableGitCommit: true,
+      enableCodeGeneration: true,
+      gitAutoPush: false,
+    }, undefined, this.gitOps);
+    
+    // 初始化 AutoFix（自动修复）
+    this.autoFix = new AutoFix({
+      maxRetries: 2,
+      enableLinting: true,
+      enableTesting: true,
+    });
     
     // 初始化 BullMQ 队列
     this.taskQueue = new Queue('aidos-tasks', { connection: redisConnection });
@@ -366,13 +395,17 @@ export class TaskWorker extends EventEmitter {
     try {
       console.log(`[TaskWorker] Executing task: ${task.title} with agent ${agent.name}`);
       
-      // 使用 AgentPool 分配并执行任务（自动管理代理状态）
-      const taskType = this.getTaskType(task.title);
-      const result = await this.agentPool.assignTask(taskType, {
-        taskId: task.id,
-        title: task.title,
-        description: task.description,
-      }, agent.id);
+      // 使用 TaskExecutor 执行真实任务（含 Git 自动化）
+      const executorTask = {
+        id: task.id,
+        name: task.title,
+        description: task.description || '',
+        status: 'pending',
+        priority: 1,
+        createdAt: new Date().toISOString(),
+      };
+      
+      const result = await this.taskExecutor.execute(executorTask as any);
       
       // 更新任务结果
       await dataStore.updateTask(task.id, {
@@ -383,10 +416,12 @@ export class TaskWorker extends EventEmitter {
       if (result.success) {
         this.clearRetryCount(task.id);
         console.log(`[TaskWorker] Task completed: ${task.id}`);
+        
         this.emit('taskCompleted', task);
       } else {
         // 执行失败，尝试重试
-        await this.handleTaskFailure(task, agent, result.error || 'Unknown error');
+        const errorMsg = result.output || 'Unknown error';
+        await this.handleTaskFailure(task, agent, errorMsg);
       }
       
     } catch (error: any) {
