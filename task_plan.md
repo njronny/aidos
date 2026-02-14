@@ -1,82 +1,26 @@
-# AIDOS 开发计划 - Milestone 1: OpenClaw 集成
+# AIDOS 集成开发计划 - OpenClaw 真实集成
 
 ## 目标
-实现 AIDOS 调用 OpenClaw 执行任务的核心能力
+将 AIDOS 与 OpenClaw 真正集成，实现真实代码生成
 
 ## 架构
 
 ```
-AIDOS → OpenClawExecutor → OpenClaw CLI/API
-                        ↓
-                   返回结果
-
+AIDOS → OpenClawExecutor → sessions_spawn → OpenClaw Agent
+                                          ↓
+                                    LLM (MiniMax)
 ```
 
 ## 任务清单
 
-### 1.1 OpenClawExecutor ✅
-- [x] 调用本地 OpenClaw 执行任务
-- [x] 任务状态跟踪
-- [x] 结果回收
-- [x] 测试用例 (18 tests)
+### 1. OpenClaw 真实执行器
+- [ ] 修改 OpenClawExecutor 使用 sessions_spawn
+- [ ] 测试真实调用 OpenClaw
 
-### 1.2 TaskDistributor ✅
-- [x] 任务分发到 OpenClaw
-- [x] 负载均衡
-- [x] 故障转移
-- [x] 测试用例 (9 tests)
-
-### 1.3 NodeRegistry ✅
-- [x] 节点注册
-- [x] 心跳检测
-- [x] 能力描述
-- [x] 测试用例 (17 tests)
+### 2. 工作流引擎集成
+- [ ] 集成所有模块到 WorkflowEngine
+- [ ] 端到端测试
 
 ---
 
-## M2: 错误自动恢复 ✅
-
-| 模块 | 测试数 | 状态 |
-|------|--------|------|
-| ErrorClassifier | 11 | ✅ |
-| FixStrategyEngine | 11 | ✅ |
-| AutoRetry | 6 | ✅ |
-| **小计** | **28** | ✅ |
-
----
-
-## M3: 数据持久化 ✅
-
-| 模块 | 测试数 | 状态 |
-|------|--------|------|
-| ProjectRepository | 10 | ✅ |
-| TaskRepository | 7 | ✅ |
-| BackupService | 13 | ✅ |
-| CheckpointService | 17 | ✅ |
-| TaskStateManager | 9 | ✅ |
-| **小计** | **56** | ✅ |
-
----
-
-## M4: 可视化 ✅
-
-| 模块 | 测试数 | 状态 |
-|------|--------|------|
-| Dashboard | 8 | ✅ |
-| FlowVisualizer | 8 | ✅ |
-| **小计** | **16** | ✅ |
-
----
-
-## 开始时间
-2026-02-15
-
-## 进度
-
-| 里程碑 | 测试 | 状态 |
-|--------|------|------|
-| M1: OpenClaw 集成 | 44 | ✅ |
-| M2: 错误自动恢复 | 28 | ✅ |
-| M3: 数据持久化 | 56 | ✅ |
-| M4: 可视化 | 16 | ✅ |
-| **总计** | **144** | ✅ |
+开始时间: 2026-02-15
