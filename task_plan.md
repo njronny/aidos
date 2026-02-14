@@ -45,6 +45,19 @@ AIDOS → OpenClawExecutor → OpenClaw CLI/API
 
 ---
 
+## M3: 数据持久化 ✅
+
+| 模块 | 测试数 | 状态 |
+|------|--------|------|
+| ProjectRepository | 10 | ✅ |
+| TaskRepository | 7 | ✅ |
+| BackupService | 13 | ✅ |
+| CheckpointService | 17 | ✅ |
+| TaskStateManager | 9 | ✅ |
+| **小计** | **56** | ✅ |
+
+---
+
 ## 开始时间
 2026-02-15
 
@@ -54,6 +67,6 @@ AIDOS → OpenClawExecutor → OpenClaw CLI/API
 |--------|------|------|
 | M1: OpenClaw 集成 | 44 | ✅ |
 | M2: 错误自动恢复 | 28 | ✅ |
-| M3: 数据持久化 | - | 🔲 |
+| M3: 数据持久化 | 56 | ✅ |
 | M4: 可视化 | - | 🔲 |
-| **总计** | **72** | |
+| **总计** | **128** | |
