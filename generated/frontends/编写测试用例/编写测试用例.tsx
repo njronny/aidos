@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import './代码审查.css';
+import './编写测试用例.css';
 
-interface 代码审查Props {
+interface 编写测试用例Props {
   className?: string;
 }
 
-export const 代码审查: React.FC<代码审查Props> = ({ 
+export const 编写测试用例: React.FC<编写测试用例Props> = ({ 
   className = '' 
 }) => {
   const [data, setData] = useState<any>(null);
@@ -13,7 +13,7 @@ export const 代码审查: React.FC<代码审查Props> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // TODO: Implement data fetching for 代码审查
+    // TODO: Implement data fetching for 编写测试用例
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -32,11 +32,11 @@ export const 代码审查: React.FC<代码审查Props> = ({
   if (error) return <div className={`${className} error`}>{error}</div>;
 
   return (
-    <div className={`${className} 代码审查`}>
-      <h2>代码审查</h2>
-      <p>对Task Test Requirement的代码进行审查</p>
+    <div className={`${className} 编写测试用例`}>
+      <h2>编写测试用例</h2>
+      <p>为Test Requirement编写测试用例</p>
     </div>
   );
 };
 
-export default 代码审查;
+export default 编写测试用例;

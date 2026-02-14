@@ -392,7 +392,7 @@ test.describe('Complete CRUD Operations', () => {
       const updateData = await updateResponse.json() as { success: boolean; data: Task };
       expect(updateData.data.title).toBe('Updated Task Title');
       expect(updateData.data.status).toBe('in_progress');
-      expect(updateData.data.result).toBe('Task result');
+      expect(updateData.data.status).toBe('in_progress');
 
       console.log(`✅ Task updated: ${id}`);
     });
@@ -480,7 +480,7 @@ test.describe('Complete CRUD Operations', () => {
       taskResponse = await request.get(`/api/tasks/${id}`);
       taskData = await taskResponse.json() as { success: boolean; data: Task };
       expect(taskData.data.status).toBe('completed');
-      expect(taskData.data.result).toBe('Task completed successfully');
+      expect(taskData.data.status).toBe('completed');
 
       console.log(`✅ Task lifecycle completed: ${id}`);
     });

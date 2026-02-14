@@ -61,7 +61,7 @@ test.describe('Enhanced Workflow E2E', () => {
       // List all projects
       const listResponse = await request.get('/api/projects');
       const listData = await listResponse.json() as { success: boolean; data: Project[] };
-      expect(listData.data.length).toBeGreaterThanOrEqual(3));
+      expect(listData.data.length).toBeGreaterThanOrEqual(3);
 
       // Update all projects
       for (const id of projectIds) {
