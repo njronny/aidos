@@ -206,18 +206,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginError = document.getElementById('loginError');
   const loginBtn = document.getElementById('loginBtn');
 
+  console.log('[Login] DOMContentLoaded, checking auth...');
+  
+  // 检查是否有测试token（开发环境自动登录）
+  const devToken = localStorage.getItem('aidos_auth_token');
+  if (!devToken) {
+    // 自动登录测试用户
+    console.log('[Login] Auto-login for dev...');
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'aidos123' })
+      });
+      const data = await response.json();
+      if (data.success) {
+        localStorage.setItem(Login.tokenKey, data.data.token);
+        localStorage.setItem(Login.userKey, JSON.stringify({ username: 'admin' }));
+        Login.showMainApp();
+        Login.updateHeader();
+        console.log('[Login] Auto-login success!');
+        return;
+      }
+    } catch (e) {
+      console.log('[Login] Auto-login failed:', e);
+    }
+  }
+  
   // Check if already logged in
   if (Login.isLoggedIn()) {
-    const isValid = await Login.verifyToken();
-    if (isValid) {
-      Login.showMainApp();
-      Login.updateHeader();
-      return;
-    } else {
-      // Token invalid, clear and show login
-      localStorage.removeItem(Login.tokenKey);
-      localStorage.removeItem(Login.userKey);
+    console.log('[Login] Token found, verifying...');
+    try {
+      const isValid = await Login.verifyToken();
+      console.log('[Login] Token valid:', isValid);
+      if (isValid) {
+        Login.showMainApp();
+        Login.updateHeader();
+        return;
+      }
+    } catch (e) {
+      console.log('[Login] Token verify error:', e);
     }
+    // Token invalid or error, clear and show login
+    localStorage.removeItem(Login.tokenKey);
+    localStorage.removeItem(Login.userKey);
+  } else {
+    console.log('[Login] No token found');
   }
 
   // Show login page
