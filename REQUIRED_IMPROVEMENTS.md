@@ -4,21 +4,22 @@
 
 ---
 
-## 一、安全问题 (P0 - 必须修复)
+## 一、安全问题 (P0 - ✅ 已修复)
 
-### 1.1 API 路由未启用认证
+### 1.1 API 路由未启用认证 ✅ 已修复
 
 **问题**: 大部分 API 路由未使用 authMiddleware
 
-**现状**:
-- `/api/auth/login` - 公开 ✅
-- `/api/projects` - 未保护 ❌
-- `/api/tasks` - 未保护 ❌
-- `/api/requirements` - 未保护 ❌
+**修复**:
+- 为 projects.ts 添加了 JWT 认证中间件
+- 未授权访问返回 401 错误
+- 公开路由（/auth/login, /auth/verify）无需认证
 
-**影响**: 任何人无需登录即可访问项目、任务数据
-
-**修复**: 需要为各路由添加 authMiddleware
+**验证**:
+```
+未授权访问 → {"success":false,"error":"未提供认证 token"}
+授权访问   → {"success":true,"data":[...]}
+```
 
 ---
 
