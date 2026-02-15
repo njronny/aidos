@@ -25,7 +25,10 @@ export function authMiddleware() {
         '/health',
         '/docs',
         '/swagger',
-        '/ws'
+        '/ws',
+        '/api/auth/login',
+        '/api/auth/verify',
+        '/api'  // API 概览
       ];
       
       const isPublicRoute = publicRoutes.some(route => 

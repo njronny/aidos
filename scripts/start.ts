@@ -7,6 +7,7 @@
  *   npm run api:dev      - Run with hot reload
  */
 
+import 'dotenv/config';
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
@@ -76,14 +77,14 @@ async function main() {
       }));
     });
 
+    // Register auth middleware (global) - 必须在路由之前注册
+    await fastify.register(authMiddleware);
+
     // Register routes
     await fastify.register(projectRoutes, { prefix: '/api' });
     await fastify.register(requirementRoutes, { prefix: '/api' });
     await fastify.register(taskRoutes, { prefix: '/api' });
     await fastify.register(agentRoutes, { prefix: '/api' });
-
-    // Register auth middleware (global)
-    await fastify.register(authMiddleware);
 
     // Health check
     fastify.get('/health', async (request, reply) => {
