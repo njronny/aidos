@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import jwt from 'jsonwebtoken';
 import { dataStore } from '../store';
 import { Project, CreateProjectDto, UpdateProjectDto, QueryParams } from '../types';
 
@@ -36,6 +37,44 @@ function filterItems<T>(items: T[], search?: string) {
 }
 
 export async function projectRoutes(fastify: FastifyInstance) {
+  // 添加全局认证钩子 - 保护所有非公开路由
+  fastify.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // 跳过公开路由
+    const publicRoutes = [
+      '/auth/login',
+      '/auth/verify',
+      '/health',
+      '/api/auth/login',
+      '/api/auth/verify'
+    ];
+    
+    if (publicRoutes.some(route => request.url.startsWith(route))) {
+      return;
+    }
+    
+    // 验证 token
+    const authHeader = request.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return reply.status(401).send({
+        success: false,
+        error: '未提供认证 token'
+      });
+    }
+    
+    const token = authHeader.substring(7);
+    const jwtSecret = process.env.JWT_SECRET || 'default-secret';
+    
+    try {
+      const decoded = jwt.verify(token, jwtSecret) as any;
+      (request as any).user = decoded;
+    } catch (error) {
+      return reply.status(401).send({
+        success: false,
+        error: '无效的认证 token'
+      });
+    }
+  });
+
   // Auth endpoints
   fastify.post('/auth/login', async (request, reply) => {
     const body = request.body as any;
