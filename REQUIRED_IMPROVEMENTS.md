@@ -25,31 +25,39 @@
 
 ## 二、功能缺失 (P1 - 重要)
 
-### 2.1 Git 自动提交未验证
+### 2.1 TaskExecutor TODO ✅ 模板占位符
 
-**问题**: autoCommit 代码已实现但未验证
-
-**状态**: 代码在 AIDOSWorkflow.ts 中，需要 Gateway 运行
-
-### 2.2 测试执行未实现
-
-**问题**: AutoTestService 有 TODO
+**问题**: 代码模板中的 TODO 标记
 
 **现状**:
-- ✅ 生成测试代码
-- ❌ 不执行测试
+- `TaskExecutor.ts:92` - 代码生成模板占位符
+- `TaskExecutor.ts:144` - 代码生成模板占位符
+- `TaskExecutor.ts:243-272` - 测试生成模板占位符
+- `TaskExecutor.ts:339-359` - Service 生成模板占位符
 
-### 2.3 TaskExecutor 大量 TODO
-
-```
-- TaskExecutor.ts:92 - TODO: 数据获取
-- TaskExecutor.ts:144 - TODO: 业务逻辑
-- TaskExecutor.ts:243 - TODO: 实际测试
-```
+**说明**: 这些是代码生成模板中的占位符，在生成代码时会被替换，不是实际实现问题
 
 ---
 
-## 三、代码质量 (P2 - 优化)
+## 三、测试覆盖 (P2 - 持续改善)
+
+### 3.1 API 测试
+
+**新增**:
+- `src/api/__tests__/api.test.ts` - API 模块基础测试
+
+### 3.2 核心模块测试
+
+**已有**:
+- ContextManager 测试
+- GitOps 测试
+- ErrorClassifier 测试
+- ProjectRepository 测试
+- WorkflowEngine 测试
+
+---
+
+## 四、代码质量 (P2 - 优化)
 
 ### 3.1 未使用的代码
 
