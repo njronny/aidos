@@ -43,20 +43,66 @@ export async function projectRoutes(fastify: FastifyInstance) {
     if (!username || !password) {
       return reply.status(400).send({ success: false, error: '用户名和密码不能为空' });
     }
-    if (username === 'admin' && password === 'aidos123') {
-      const { v4: uuidv4 } = require('uuid');
-      const token = uuidv4();
-      return reply.send({ success: true, data: { token, username: 'admin' } });
+    
+    // 从环境变量获取管理员哈希密码
+    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+    const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+    
+    if (!passwordHash) {
+      console.error('[Auth] ADMIN_PASSWORD_HASH not configured!');
+      return reply.status(500).send({ success: false, error: '服务器配置错误' });
     }
-    return reply.status(401).send({ success: false, error: '用户名或密码错误' });
+    
+    // 验证用户名
+    if (username !== adminUsername) {
+      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
+    }
+    
+    // 使用 bcrypt 验证密码
+    const bcrypt = require('bcrypt');
+    const passwordValid = await bcrypt.compare(password, passwordHash);
+    
+    if (!passwordValid) {
+      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
+    }
+    
+    // 生成 JWT token
+    const jwt = require('jsonwebtoken');
+    const jwtSecret = process.env.JWT_SECRET;
+    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    
+    const token = jwt.sign(
+      { username, role: 'admin' },
+      jwtSecret,
+      { expiresIn: jwtExpiresIn }
+    );
+    
+    return reply.send({ 
+      success: true, 
+      data: { 
+        token, 
+        username: 'admin',
+        expiresIn: jwtExpiresIn
+      } 
+    });
   });
 
   fastify.get('/auth/verify', async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-      return reply.status(401).send({ success: false, valid: false });
+      return reply.status(401).send({ success: false, valid: false, error: '未提供 token' });
     }
-    return reply.send({ success: true, valid: true });
+    
+    const token = authHeader.substring(7);
+    const jwtSecret = process.env.JWT_SECRET;
+    
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, jwtSecret);
+      return reply.send({ success: true, valid: true, user: decoded });
+    } catch (error) {
+      return reply.status(401).send({ success: false, valid: false, error: 'token 无效或已过期' });
+    }
   });
 
   // GET /projects - 获取所有项目
