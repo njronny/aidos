@@ -118,12 +118,15 @@ export class GitOps {
   }
 
   /**
-   * Create a commit
+   * Create a commit (with pre-added files)
    */
-  async commit(message: string): Promise<CommitResult> {
+  async commit(message: string, skipAdd: boolean = false): Promise<CommitResult> {
     try {
-      await this.git('add', '-A');
-      const result = await this.git('commit', '-m', message);
+      if (!skipAdd) {
+        await this.git('add', '-A');
+      }
+      // Use double quotes to handle Chinese characters
+      const result = await this.git('commit', '-m', `"${message}"`);
       const commitHash = (await this.git('rev-parse', 'HEAD')).trim();
 
       return {

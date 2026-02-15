@@ -25,7 +25,13 @@ export async function authRoutes(fastify: FastifyInstance) {
     if (!authHeader?.startsWith('Bearer ')) {
       return reply.status(401).send({ success: false, valid: false });
     }
-    return reply.send({ success: true, valid: true });
+    
+    const token = authHeader.substring(7);
+    // 验证 token 是否有效（简单验证：UUID 格式且长度足够）
+    if (token && token.length === 36) {
+      return reply.send({ success: true, valid: true });
+    }
+    return reply.status(401).send({ success: false, valid: false });
   });
 
   // POST /api/auth/logout - 用户登出

@@ -328,21 +328,22 @@ export class AIDOSWorkflow {
     try {
       // 获取 git 状态
       const status = await this.gitOps.getStatus();
+      console.log(`   [DEBUG] Git status: isClean=${status.isClean}, changes=${status.changes.length}`);
       
       if (status.changes.length > 0) {
         // 有文件变更，进行 commit
         const commitMessage = `[${task.id.substring(0, 8)}] ${task.name}`;
         
-        // 添加所有变更
-        await this.gitOps.add('.');
+        // 添加 src, generated, scripts 目录，忽略 skills 等子模块
+        await this.gitOps.add(['src', 'generated', 'scripts', 'package.json', 'tsconfig.json']);
         
-        // 提交
-        const result = await this.gitOps.commit(commitMessage);
+        // 提交 (skipAdd=true 因为已经手动添加了文件)
+        const result = await this.gitOps.commit(commitMessage, true);
         
         if (result.success) {
           console.log(`   📝 Git 提交: ${commitMessage}`);
         } else {
-          console.log(`   ⚠️ Git 提交跳过: ${result.message}`);
+          console.log(`   ⚠️ Git 提交失败: ${result.error || result.message || 'unknown'}`);
         }
       } else {
         console.log(`   📝 无新文件变更，跳过 Git 提交`);
