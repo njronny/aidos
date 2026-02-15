@@ -25,6 +25,14 @@ export class ContextManager {
     maxHistorySize = 1000,
     maxSnapshots = 10
   ) {
+    // 输入验证
+    if (!projectName || typeof projectName !== 'string') {
+      throw new Error('Invalid projectName: must be a non-empty string');
+    }
+    if (!projectPath || typeof projectPath !== 'string') {
+      throw new Error('Invalid projectPath: must be a non-empty string');
+    }
+    
     this.maxHistorySize = maxHistorySize;
     this.maxSnapshots = maxSnapshots;
 

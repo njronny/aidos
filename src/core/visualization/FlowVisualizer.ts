@@ -42,11 +42,27 @@ export class FlowVisualizer {
    * 从任务生成流程图
    */
   async generateFlow(tasks: TaskInput[]): Promise<FlowGraph> {
+    // 输入验证
+    if (!Array.isArray(tasks)) {
+      throw new Error('Invalid tasks: must be an array');
+    }
+    
     const nodes: FlowNode[] = [];
     const edges: FlowEdge[] = [];
 
     // 创建节点
     for (const task of tasks) {
+      // 验证任务对象
+      if (!task || typeof task !== 'object') {
+        console.warn('Skipping invalid task:', task);
+        continue;
+      }
+      
+      if (!task.id || typeof task.id !== 'string') {
+        console.warn('Skipping task without valid id:', task);
+        continue;
+      }
+      
       nodes.push({
         id: task.id,
         label: task.name,
