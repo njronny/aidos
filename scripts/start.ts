@@ -16,6 +16,7 @@ import { projectRoutes } from '../src/api/routes/projects';
 import { requirementRoutes } from '../src/api/routes/requirements';
 import { taskRoutes } from '../src/api/routes/tasks';
 import { agentRoutes } from '../src/api/routes/agents';
+import { authMiddleware } from '../src/api/middleware/auth';
 
 const fastify = Fastify({
   logger: {
@@ -80,6 +81,9 @@ async function main() {
     await fastify.register(requirementRoutes, { prefix: '/api' });
     await fastify.register(taskRoutes, { prefix: '/api' });
     await fastify.register(agentRoutes, { prefix: '/api' });
+
+    // Register auth middleware (global)
+    await fastify.register(authMiddleware);
 
     // Health check
     fastify.get('/health', async (request, reply) => {
