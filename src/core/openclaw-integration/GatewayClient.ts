@@ -121,26 +121,31 @@ export class OpenClawGatewayClient {
       try {
         const history = await this.getTaskStatus(sessionKey);
         
-        // 解析响应格式
+        // 解析响应格式 - content[0].text 是 JSON 字符串
         const contentObj = history.result?.content?.[0];
-        const content = typeof contentObj === 'string' ? contentObj : contentObj?.text;
+        const contentText = contentObj?.text || '';
         let parsed: any = {};
         
-        if (content) {
-          try {
-            parsed = JSON.parse(content);
-          } catch (e) {}
+        try {
+          parsed = JSON.parse(contentText);
+        } catch (e) {
+          // 如果解析失败，尝试直接用 details
         }
         
-        // 从 details 中获取消息
-        const messages = parsed.messages || history.result?.details?.messages || [];
+        // 从 details 中获取消息 (更可靠)
+        const messages = history.result?.details?.messages || parsed.messages || [];
+        
+        console.log(`[GatewayClient] 轮询: ${messages.length} 条消息`);
         
         if (messages.length > 0) {
           const lastMsg = messages[0];
-          const msgContent = lastMsg.message?.content;
+          console.log(`[GatewayClient] stopReason: ${lastMsg.stopReason}`);
+          
+          // 修复：content 在 lastMsg 顶层
+          const msgContent = lastMsg.content;
           
           // 检查是否完成 (stopReason 存在表示完成)
-          if (lastMsg.stopReason || lastMsg.message?.role === 'assistant') {
+          if (lastMsg.stopReason) {
             // 提取文本内容
             let resultText = '';
             if (Array.isArray(msgContent)) {
@@ -150,6 +155,7 @@ export class OpenClawGatewayClient {
                 }
               }
             }
+            console.log(`[GatewayClient] 任务完成!`);
             return { completed: true, result: resultText };
           }
         }
