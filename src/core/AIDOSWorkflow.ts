@@ -6,6 +6,7 @@
 
 import { OpenClawRealExecutor, RealTask, RealResult } from './openclaw-integration/OpenClawRealExecutor';
 import { TaskDistributor } from './openclaw-integration/TaskDistributor';
+import { GitOps } from './gitops/GitOps';
 import { ErrorClassifier, ErrorType } from './error-recovery/ErrorClassifier';
 import { FixStrategyEngine } from './error-recovery/FixStrategyEngine';
 import { AutoRetry } from './error-recovery/AutoRetry';
@@ -87,7 +88,16 @@ export class AIDOSWorkflow {
     this.taskRepo = new TaskRepository();
     this.dashboard = new Dashboard();
     this.visualizer = new FlowVisualizer();
+    
+    // 初始化 GitOps
+    this.gitOps = new GitOps({
+      repoPath: process.cwd(),
+      authorName: 'AIDOS',
+      authorEmail: 'aidos@dev.local',
+    });
   }
+
+  private gitOps: GitOps;
 
   /**
    * 启用真实 OpenClaw 执行
@@ -180,6 +190,9 @@ export class AIDOSWorkflow {
         if (result.success) {
           await store.updateTask(task.id, { status: 'completed' });
           console.log(`   ✅ ${task.name}: 完成`);
+          
+          // 自动 Git 提交
+          await this.autoCommit(task, result.output);
         } else {
           await store.updateTask(task.id, { status: 'failed' });
           console.log(`   ❌ ${task.name}: 失败 - ${result.error}`);
@@ -306,6 +319,38 @@ export class AIDOSWorkflow {
     }
 
     return false;
+  }
+
+  /**
+   * 自动 Git 提交
+   */
+  private async autoCommit(task: Task, output?: string): Promise<void> {
+    try {
+      // 获取 git 状态
+      const status = await this.gitOps.getStatus();
+      
+      if (status.changes.length > 0) {
+        // 有文件变更，进行 commit
+        const commitMessage = `[${task.id.substring(0, 8)}] ${task.name}`;
+        
+        // 添加所有变更
+        await this.gitOps.add('.');
+        
+        // 提交
+        const result = await this.gitOps.commit(commitMessage);
+        
+        if (result.success) {
+          console.log(`   📝 Git 提交: ${commitMessage}`);
+        } else {
+          console.log(`   ⚠️ Git 提交跳过: ${result.message}`);
+        }
+      } else {
+        console.log(`   📝 无新文件变更，跳过 Git 提交`);
+      }
+    } catch (error) {
+      // Git 操作失败不影响主流程
+      console.log(`   ⚠️ Git 提交失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
