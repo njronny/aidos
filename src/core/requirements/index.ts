@@ -1,6 +1,2 @@
-/**
- * Requirements Module
- */
-
 export * from './RequirementsAnalyzer';
-export * from './EnhancedRequirementsAnalyzer';
+export { default } from './RequirementsAnalyzer';

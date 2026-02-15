@@ -3,6 +3,25 @@
  * Handles WebSocket connection and message handling for real-time task updates
  */
 
+// 更新连接状态显示
+function updateConnectionStatus(connected) {
+  const statusEl = document.getElementById('connectionStatus');
+  if (!statusEl) return;
+  
+  const dot = statusEl.querySelector('.status-dot');
+  const text = statusEl.querySelector('.status-text');
+  
+  if (connected) {
+    statusEl.className = 'connection-status connected';
+    if (dot) dot.className = 'status-dot connected';
+    if (text) text.textContent = 'Connected';
+  } else {
+    statusEl.className = 'connection-status disconnected';
+    if (dot) dot.className = 'status-dot disconnected';
+    if (text) text.textContent = 'Disconnected - Reconnecting...';
+  }
+}
+
 // Get WebSocket URL based on current host
 function getWebSocketUrl() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -46,6 +65,9 @@ const WebSocketClient = (function() {
           console.log('[WebSocket] Connected successfully');
           isConnecting = false;
           reconnectAttempts = 0;
+          
+          // 更新连接状态UI
+          updateConnectionStatus(true);
           
           // Notify connection listeners
           connectionListeners.forEach(listener => listener(true));

@@ -1,17 +1,23 @@
 /**
- * LLM Service Types
+ * LLM 类型定义
  */
 
-export type LLMProvider = 'openai' | 'anthropic' | 'azure' | 'local' | 'minimax';
-
 export interface LLMConfig {
-  provider: LLMProvider;
-  apiKey: string;
-  model: string;
+  provider: string;
+  apiKey?: string;
   baseUrl?: string;
+  model?: string;
   maxTokens?: number;
   temperature?: number;
-  timeout?: number;
+}
+
+export interface LLMResponse {
+  content: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 export interface ChatMessage {
@@ -19,34 +25,17 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface CompletionOptions {
-  maxTokens?: number;
+export interface ChatOptions {
+  messages: ChatMessage[];
   temperature?: number;
-  topP?: number;
-  stop?: string[];
-  stream?: boolean;
+  maxTokens?: number;
 }
 
-export interface TokenUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-}
+export type LLMProvider = 'openai' | 'anthropic' | 'minimax' | 'mock';
 
-export interface LLMResponse {
-  content: string;
-  usage: TokenUsage;
+export interface OpenClawModelConfig {
+  provider: LLMProvider;
   model: string;
-  finishReason: 'stop' | 'length' | 'content_filter' | 'error';
-}
-
-export interface ProviderPricing {
-  input: number;  // per 1M tokens
-  output: number; // per 1M tokens
-}
-
-export interface StreamChunk {
-  delta: string;
-  usage?: TokenUsage;
-  done: boolean;
+  apiKey?: string;
+  baseUrl?: string;
 }

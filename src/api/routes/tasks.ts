@@ -85,4 +85,30 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
     return reply.send({ success: true, message: '任务已删除' });
   });
+
+  // POST /tasks/:id/retry - 重试失败的任务
+  fastify.post<{ Params: { id: string } }>('/tasks/:id/retry', async (request, reply) => {
+    const task = await dataStore.getTaskById(request.params.id);
+    if (!task) {
+      return reply.status(404).send({ success: false, error: '任务不存在' });
+    }
+    if (task.status !== 'failed') {
+      return reply.status(400).send({ success: false, error: '只有失败的任务可以重试' });
+    }
+    const updated = await dataStore.updateTask(request.params.id, { status: 'pending' });
+    return reply.send({ success: true, data: updated, message: '任务已重试' });
+  });
+
+  // POST /tasks/:id/cancel - 取消运行中的任务
+  fastify.post<{ Params: { id: string } }>('/tasks/:id/cancel', async (request, reply) => {
+    const task = await dataStore.getTaskById(request.params.id);
+    if (!task) {
+      return reply.status(404).send({ success: false, error: '任务不存在' });
+    }
+    if (task.status !== 'running' && task.status !== 'in_progress') {
+      return reply.status(400).send({ success: false, error: '只有运行中的任务可以取消' });
+    }
+    const updated = await dataStore.updateTask(request.params.id, { status: 'pending' });
+    return reply.send({ success: true, data: updated, message: '任务已取消' });
+  });
 }

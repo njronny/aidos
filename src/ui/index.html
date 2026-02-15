@@ -30,9 +30,6 @@
           <div class="login-error hidden" id="loginError"></div>
           <button type="submit" class="login-btn" id="loginBtn">登录</button>
         </form>
-        <div class="login-footer">
-          默认账户: admin / aidos123
-        </div>
       </div>
     </div>
   </div>
@@ -316,7 +313,7 @@
     }
 
     // API URL 必须在这里定义（在函数之前）
-    var API_URL = 'http://127.0.0.1:3000';
+    var API_URL = window.location.origin; // 动态获取
     var API_URL_FOR_ALL = API_URL;
 
     async function submitRequirement() {
@@ -422,6 +419,15 @@
     document.getElementById('newRequirementModal').addEventListener('click', (e) => {
       if (e.target.classList.contains('modal')) {
         closeModal();
+      }
+    });
+
+    // ESC key to close modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+        closeProjectDetailModal();
+        closeTaskLogModal();
       }
     });
   </script>

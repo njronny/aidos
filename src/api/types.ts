@@ -77,8 +77,9 @@ export interface Task {
   requirementId: string;
   agentId?: string;
   title: string;
+  name?: string;  // 前端期望的字段
   description?: string;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending' | 'assigned' | 'in_progress' | 'running' | 'completed' | 'failed';
   result?: string;
   createdAt: string;
   updatedAt: string;
@@ -94,7 +95,7 @@ export interface CreateTaskDto {
 export interface UpdateTaskDto {
   title?: string;
   description?: string;
-  status?: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'failed';
+  status?: 'pending' | 'assigned' | 'in_progress' | 'running' | 'completed' | 'failed';
   agentId?: string;
   result?: string;
 }

@@ -1,5 +1,39 @@
 // Login functionality
-const API_URL = 'http://127.0.0.1:3000';
+const API_URL = window.location.origin; // 动态获取
+
+// 全局请求封装 - 带超时和错误处理
+window.apiFetch = async function(url, options = {}, timeout = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const defaultOptions = {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: controller.signal,
+    };
+    const res = await fetch(url, { ...defaultOptions, ...options });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.error || 'API Error');
+    }
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw err;
+  }
+};
+
 const Login = {
   tokenKey: 'aidos_auth_token',
   userKey: 'aidos_user',
@@ -42,21 +76,11 @@ const Login = {
         }));
         return { success: true };
       } else {
-        // Fallback: 允许使用默认账户登录（演示模式）
-        if (username === 'admin' && password === 'aidos123') {
-          localStorage.setItem(this.tokenKey, 'demo_token_' + Date.now());
-          localStorage.setItem(this.userKey, JSON.stringify({ username: 'admin' }));
-          return { success: true };
         }
         return { success: false, error: data.error };
       }
     } catch (error) {
       console.error('Login error:', error);
-      // Fallback: 离线模式允许登录（演示用）
-      if (username === 'admin' && password === 'aidos123') {
-        localStorage.setItem(this.tokenKey, 'demo_token_' + Date.now());
-        localStorage.setItem(this.userKey, JSON.stringify({ username: 'admin' }));
-        return { success: true, demo: true };
       }
       return { success: false, error: '登录失败，请检查服务器是否运行' };
     }

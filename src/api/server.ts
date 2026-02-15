@@ -5,6 +5,7 @@ import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { projectRoutes } from './routes/projects';
+
 import { requirementRoutes } from './routes/requirements';
 import { taskRoutes } from './routes/tasks';
 import { agentRoutes } from './routes/agents';
@@ -13,7 +14,6 @@ import { exportRoutes } from './routes/export';
 import { batchRoutes } from './routes/batch';
 import { qualityRoutes } from './routes/quality';
 import { monitoringRoutes } from './routes/monitoring';
-import { requirementsAnalyzerRoutes } from './routes/requirements-analyzer';
 import { feedbackRoutes } from './routes/feedback';
 import { templateRoutes } from './routes/templates';
 import { publicRoute, authMiddleware } from './auth';
@@ -186,28 +186,10 @@ async function startServer() {
       });
     }
 
-    // Register public auth routes (no auth required)
-    fastify.post('/api/auth/login', async (request, reply) => {
-      const body = request.body as any;
-      const { username, password } = body || {};
-      if (!username || !password) {
-        return reply.status(400).send({ success: false, error: '用户名和密码不能为空' });
-      }
-      if (username === 'admin' && password === 'aidos123') {
-        const { v4: uuidv4 } = require('uuid');
-        const token = uuidv4();
-        return reply.send({ success: true, data: { token, username: 'admin' } });
-      }
-      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
-    });
+    // Register auth routes
+    console.log("[DEBUG] Registering auth routes...");
+    
 
-    fastify.get('/api/auth/verify', async (request, reply) => {
-      const authHeader = request.headers.authorization;
-      if (!authHeader?.startsWith('Bearer ')) {
-        return reply.status(401).send({ success: false, valid: false });
-      }
-      return reply.send({ success: true, valid: true });
-    });
     // Register routes directly
     await fastify.register(projectRoutes, { prefix: '/api' });
     await fastify.register(requirementRoutes, { prefix: '/api' });
@@ -218,7 +200,6 @@ async function startServer() {
     await fastify.register(batchRoutes, { prefix: '/api' });
     await fastify.register(qualityRoutes, { prefix: '/api' });
     await fastify.register(monitoringRoutes, { prefix: '/api' });
-    await fastify.register(requirementsAnalyzerRoutes, { prefix: '/api' });
     await fastify.register(feedbackRoutes, { prefix: '/api' });
     await fastify.register(templateRoutes, { prefix: '/api' });
     // Health check

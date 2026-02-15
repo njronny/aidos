@@ -34,7 +34,7 @@ export const 分析需求: React.FC<分析需求Props> = ({
   return (
     <div className={`${className} 分析需求`}>
       <h2>分析需求</h2>
-      <p>分析并理解Task Test Requirement</p>
+      <p>分析并理解科学计算器功能</p>
     </div>
   );
 };

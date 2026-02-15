@@ -54,6 +54,7 @@ function toApiTask(t: any): Task {
     requirementId: t.requirementId || '',
     agentId: t.assignee,
     title: t.title,
+    name: t.title,  // 前端期望 name 字段
     description: t.description,
     status: t.status === 'running' ? 'in_progress' : t.status === 'assigned' ? 'assigned' : t.status,
     result: t.result ? JSON.stringify(t.result) : undefined,

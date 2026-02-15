@@ -14,6 +14,31 @@ import { TaskRepository, Task, TaskStatus } from './persistence/TaskRepository';
 import { Dashboard } from './visualization/Dashboard';
 import { FlowVisualizer } from './visualization/FlowVisualizer';
 
+// WebSocket 推送
+let wsManager: any = null;
+async function getWsManager() {
+  if (!wsManager) {
+    try {
+      const ws = await import('../api/websocket');
+      wsManager = ws.wsManager;
+    } catch (e) {
+      console.log('[Workflow] WebSocket not available');
+    }
+  }
+  return wsManager;
+}
+
+// 导入共享数据存储
+let dataStore: any = null;
+
+async function getDataStore() {
+  if (!dataStore) {
+    const store = await import('../api/store');
+    dataStore = store.dataStore;
+  }
+  return dataStore;
+}
+
 export interface AIDOSWorkflowOptions {
   useRealOpenClaw?: boolean;
   maxRetries?: number;
@@ -47,8 +72,12 @@ export class AIDOSWorkflow {
   constructor(options?: AIDOSWorkflowOptions) {
     // 初始化所有模块
     this.executor = new OpenClawRealExecutor({
-      useReal: options?.useRealOpenClaw ?? false,
+      useGateway: process.env.OPENCLAW_GATEWAY === 'true',
+      gatewayToken: process.env.OPENCLAW_GATEWAY_TOKEN,
     });
+    if (options?.useRealOpenClaw) {
+      this.executor.enableRealExecution();
+    }
 
     this.distributor = new TaskDistributor();
     this.classifier = new ErrorClassifier();
@@ -77,26 +106,64 @@ export class AIDOSWorkflow {
   /**
    * 运行完整工作流
    */
-  async run(requirement: string): Promise<WorkflowResult> {
+  async run(requirement: string, existingProjectId?: string): Promise<WorkflowResult> {
     console.log('\n🚀 AIDOS 工作流开始\n');
     console.log('='.repeat(50));
     console.log(`需求: ${requirement}\n`);
 
     const errors: string[] = [];
     const taskResults: TaskResult[] = [];
+    const store = await getDataStore();
 
     try {
-      // 1. 创建项目
-      console.log('📦 步骤1: 创建项目');
-      const project = await this.projectRepo.create({
-        name: this.extractProjectName(requirement),
-        description: requirement,
-      });
+      // 1. 使用已有项目或创建新项目 (使用共享数据存储)
+      let project: any;
+      let requirementId: string;
+      
+      if (existingProjectId) {
+        console.log('📦 步骤1: 使用已有项目');
+        const projects = await store.getAllProjects();
+        project = projects.find((p: any) => p.id === existingProjectId);
+        if (!project) {
+          project = await store.createProject({
+            name: this.extractProjectName(requirement),
+            description: requirement,
+          });
+        }
+        
+        // 获取或创建需求
+        const reqs = await store.getAllRequirements();
+        const existingReq = reqs.find((r: any) => r.projectId === project.id);
+        if (existingReq) {
+          requirementId = existingReq.id;
+        } else {
+          const newReq = await store.createRequirement({
+            projectId: project.id,
+            title: this.extractProjectName(requirement),
+            description: requirement,
+          });
+          requirementId = newReq.id;
+        }
+      } else {
+        console.log('📦 步骤1: 创建项目');
+        project = await store.createProject({
+          name: this.extractProjectName(requirement),
+          description: requirement,
+        });
+        
+        // 创建需求
+        const newReq = await store.createRequirement({
+          projectId: project.id,
+          title: this.extractProjectName(requirement),
+          description: requirement,
+        });
+        requirementId = newReq.id;
+      }
       console.log(`   ✅ 项目: ${project.name} (${project.id})`);
 
       // 2. 任务拆分
       console.log('\n📋 步骤2: 任务拆分');
-      const tasks = await this.splitTasks(requirement, project.id);
+      const tasks = await this.splitTasks(requirement, project.id, requirementId);
       console.log(`   ✅ 创建 ${tasks.length} 个任务`);
 
       // 3. 执行任务
@@ -111,10 +178,10 @@ export class AIDOSWorkflow {
         });
 
         if (result.success) {
-          await this.taskRepo.updateStatus(task.id, 'completed');
+          await store.updateTask(task.id, { status: 'completed' });
           console.log(`   ✅ ${task.name}: 完成`);
         } else {
-          await this.taskRepo.updateStatus(task.id, 'failed');
+          await store.updateTask(task.id, { status: 'failed' });
           console.log(`   ❌ ${task.name}: 失败 - ${result.error}`);
 
           // 4. 错误处理
@@ -172,30 +239,50 @@ export class AIDOSWorkflow {
    * 执行单个任务
    */
   private async executeTask(task: Task): Promise<RealResult> {
+    // 推送任务开始
+    const ws = await getWsManager();
+    if (ws) {
+      ws.pushTaskUpdate(task.id, 'running', '任务开始执行...');
+    }
+
     // 使用重试机制
-    const result = await this.retry.execute(
-      async () => {
-        return this.executor.execute({
-          id: task.id,
-          prompt: task.description || task.name,
-          agent: this.mapTaskTypeToAgent(task.type),
-        });
-      },
-      {
-        maxRetries: 3,
-        delay: 1000,
-        shouldRetry: (err) => {
-          // 只重试网络错误
-          return err.message.includes('network') || err.message.includes('timeout');
+    let executionResult: any = null;
+    try {
+      executionResult = await this.retry.execute(
+        async () => {
+          return await this.executor.execute({
+            id: task.id,
+            prompt: task.description || task.name,
+            agent: this.mapTaskTypeToAgent(task.type),
+          });
         },
-      }
-    );
+        {
+          maxRetries: 3,
+          delay: 1000,
+          shouldRetry: (err) => {
+            return err.message.includes('network') || err.message.includes('timeout');
+          },
+        }
+      );
+    } catch (e) {
+      executionResult = { success: false, error: e };
+    }
+
+    // 提取结果
+    const result = executionResult.success 
+      ? executionResult.data 
+      : { success: false, output: '', error: executionResult.lastError?.message || executionResult.error };
+
+    // 推送任务完成
+    if (ws) {
+      ws.pushTaskUpdate(task.id, result.success ? 'completed' : 'failed', result.output || result.error);
+    }
 
     return {
       success: result.success,
       taskId: task.id,
-      output: result.data?.output || '',
-      error: result.lastError?.message,
+      output: result.output || '',
+      error: result.error,
       executionTime: 0,
     };
   }
@@ -222,13 +309,13 @@ export class AIDOSWorkflow {
   }
 
   /**
-   * 拆分任务
+   * 拆分任务 - 使用共享数据存储
    */
-  private async splitTasks(requirement: string, projectId: string): Promise<Task[]> {
+  private async splitTasks(requirement: string, projectId: string, requirementId?: string): Promise<Task[]> {
     const tasks: Task[] = [];
+    const store = await getDataStore();
 
     // 简单任务拆分逻辑
-    // 实际可以调用 LLM 来智能拆分
     const taskDefs = [
       { name: '分析需求', type: 'development' as const, desc: `分析需求: ${requirement}` },
       { name: '实现代码', type: 'development' as const, desc: `实现: ${requirement}` },
@@ -236,21 +323,27 @@ export class AIDOSWorkflow {
     ];
 
     for (const def of taskDefs) {
-      const task = await this.taskRepo.create({
+      // 使用共享数据存储创建任务
+      const taskData = await store.createTask({
+        requirementId: requirementId || projectId,
+        title: def.name,
+        description: def.desc,
+        status: 'pending',
+      });
+      
+      // 转换为 Task 对象以保持兼容
+      const task: Task = {
+        id: taskData.id,
         projectId,
         name: def.name,
         description: def.desc,
         type: def.type,
-      });
+        status: 'pending',
+        createdAt: Date.now(),
+      };
       tasks.push(task);
-    }
-
-    // 设置依赖
-    if (tasks.length > 1) {
-      await this.taskRepo.addDependency(tasks[1].id, tasks[0].id);
-      if (tasks.length > 2) {
-        await this.taskRepo.addDependency(tasks[2].id, tasks[1].id);
-      }
+      
+      console.log(`   ✅ 创建任务: ${def.name}`);
     }
 
     return tasks;
