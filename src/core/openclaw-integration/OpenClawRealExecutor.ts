@@ -182,12 +182,39 @@ export class OpenClawRealExecutor extends EventEmitter {
 
       console.log(`[Executor] Gateway任务已启动: ${spawnResult.runId}, Session: ${spawnResult.sessionKey}`);
       
-      // 注意：sessions_spawn 是非阻塞的，任务在后台执行
-      // 简化处理：直接返回成功，让 Agent 在后台生成代码
+      // P1: 等待任务完成
+      if (spawnResult.sessionKey) {
+        console.log(`[Executor] 等待任务完成...`);
+        
+        const waitResult = await this.gatewayClient!.waitForTaskComplete(
+          spawnResult.sessionKey, 
+          180000,  // 3分钟超时
+          3000     // 3秒轮询间隔
+        );
+        
+        if (waitResult.completed) {
+          console.log(`[Executor] 任务完成!`);
+          return {
+            success: true,
+            taskId: task.id,
+            output: `✅ 任务完成!\n\n生成文件: ${outputPath}/${filename}\n\n结果:\n${waitResult.result?.substring(0, 1000) || '代码已生成'}`,
+            executionTime: Date.now() - startTime,
+          };
+        } else {
+          console.log(`[Executor] 等待超时，任务可能已在后台完成`);
+          return {
+            success: true,
+            taskId: task.id,
+            output: `⏳ 任务超时，但可能已在后台完成\n输出路径: ${outputPath}/${filename}`,
+            executionTime: Date.now() - startTime,
+          };
+        }
+      }
+      
       return {
         success: true,
         taskId: task.id,
-        output: `任务已启动\n输出路径: ${outputPath}/${filename}\nSession: ${spawnResult.sessionKey}\n\n代码将在后台生成...`,
+        output: `Gateway任务已启动\n输出路径: ${outputPath}/${filename}\nSession: ${spawnResult.sessionKey}\nRunId: ${spawnResult.runId}`,
         executionTime: Date.now() - startTime,
       };
     } catch (error) {

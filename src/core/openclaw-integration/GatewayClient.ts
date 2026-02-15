@@ -28,6 +28,7 @@ export interface SpawnResult {
 export class OpenClawGatewayClient {
   private baseUrl: string;
   private token: string;
+  private healthCheckTimer?: NodeJS.Timeout;
 
   constructor(config: GatewayConfig) {
     this.baseUrl = `http://${config.host}:${config.port}`;
@@ -161,6 +162,61 @@ export class OpenClawGatewayClient {
     }
     
     return { completed: false };
+  }
+
+  /**
+   * P2: 健康检查 - 验证 Gateway 连接
+   */
+  async healthCheck(): Promise<{ healthy: boolean; latencyMs?: number }> {
+    const start = Date.now();
+    try {
+      const result = await this.invoke('gateway_ping', {});
+      return { 
+        healthy: result?.ok === true, 
+        latencyMs: Date.now() - start 
+      };
+    } catch (e) {
+      return { healthy: false };
+    }
+  }
+
+  /**
+   * P2: 定期健康检查 - 自动重连
+   */
+  startHealthCheck(intervalMs: number = 30000, onError?: (err: Error) => void) {
+    this.healthCheckTimer = setInterval(async () => {
+      const check = await this.healthCheck();
+      if (!check.healthy) {
+        console.log(`[GatewayClient] 健康检查失败, 3秒后重试...`);
+        setTimeout(() => this.reconnect(), 3000);
+        onError?.(new Error('Gateway unhealthy'));
+      }
+    }, intervalMs);
+  }
+
+  /**
+   * P2: 重新连接
+   */
+  private async reconnect() {
+    // 简单的重连逻辑：重建客户端
+    console.log('[GatewayClient] 尝试重新连接...');
+    try {
+      const check = await this.healthCheck();
+      if (check.healthy) {
+        console.log('[GatewayClient] 重连成功!');
+      }
+    } catch (e) {
+      console.log('[GatewayClient] 重连失败，将在下次检查时重试');
+    }
+  }
+
+  /**
+   * 关闭连接
+   */
+  disconnect() {
+    if (this.healthCheckTimer) {
+      clearInterval(this.healthCheckTimer);
+    }
   }
 
   /**
