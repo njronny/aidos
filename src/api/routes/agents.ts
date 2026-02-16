@@ -2,6 +2,44 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dataStore } from '../store';
 import { Agent, CreateAgentDto, UpdateAgentDto, QueryParams } from '../types';
 
+// Schema 定义
+const agentSchemas = {
+  create: {
+    body: {
+      type: 'object',
+      required: ['name', 'type'],
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 100 },
+        type: { type: 'string', enum: ['pm', 'architect', 'developer', 'qa', 'designer', 'reviewer'] },
+        description: { type: 'string', maxLength: 1000 },
+        config: { type: 'object' },
+      },
+    },
+  },
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 100 },
+        status: { type: 'string', enum: ['active', 'inactive', 'busy'] },
+        config: { type: 'object' },
+      },
+    },
+  },
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', minimum: 1, default: 1 },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+        search: { type: 'string', maxLength: 100 },
+        type: { type: 'string' },
+        status: { type: 'string' },
+      },
+    },
+  },
+};
+
 function paginateItems<T>(items: T[], page: number, limit: number) {
   const start = (page - 1) * limit;
   const end = start + limit;
@@ -37,7 +75,7 @@ function filterItems<T>(items: T[], search?: string) {
 
 export async function agentRoutes(fastify: FastifyInstance) {
   // GET /agents - 获取所有代理
-  fastify.get<{ Querystring: QueryParams & { type?: string; status?: string } }>('/agents', async (request, reply) => {
+  fastify.get<{ Querystring: QueryParams & { type?: string; status?: string } }>('/agents', { schema: agentSchemas.query }, async (request, reply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search, type, status } = request.query;
     const agents = await dataStore.getAllAgents({ type, status });
     let filtered = filterItems(agents, search);
@@ -56,7 +94,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
   });
 
   // POST /agents - 创建代理
-  fastify.post<{ Body: CreateAgentDto }>('/agents', async (request: FastifyRequest<{ Body: CreateAgentDto }>, reply: FastifyReply) => {
+  fastify.post<{ Body: CreateAgentDto }>('/agents', { schema: agentSchemas.create }, async (request: FastifyRequest<{ Body: CreateAgentDto }>, reply: FastifyReply) => {
     const { name, type, capabilities } = request.body;
     if (!name || !type) {
       return reply.status(400).send({ success: false, error: '名称和类型不能为空' });
@@ -66,7 +104,7 @@ export async function agentRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /agents/:id - 更新代理
-  fastify.put<{ Params: { id: string }; Body: UpdateAgentDto }>('/agents/:id', async (request, reply) => {
+  fastify.put<{ Params: { id: string }; Body: UpdateAgentDto }>('/agents/:id', { schema: agentSchemas.update }, async (request, reply) => {
     const agent = await dataStore.updateAgent(request.params.id, request.body);
     if (!agent) {
       return reply.status(404).send({ success: false, error: '代理不存在' });
