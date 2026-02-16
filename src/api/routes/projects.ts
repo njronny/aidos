@@ -123,6 +123,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     
     // 自动启动 AIDOS 工作流 (真实执行)
     setImmediate(async () => {
+      let workflowSuccess = false;
       try {
         console.log(`[AIDOS] 启动工作流: ${project.name}, ID: ${project.id}`);
         
@@ -135,9 +136,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
           project.id
         );
         
+        workflowSuccess = result.success;
         console.log(`[AIDOS] 工作流完成: success=${result.success}, tasks=${result.taskResults.length}`);
+        
+        // 更新项目状态
+        if (!workflowSuccess) {
+          await dataStore.updateProject(project.id, { status: 'failed' });
+        }
       } catch (e) {
         console.error('[AIDOS] 工作流失败:', e);
+        // 标记项目为失败状态
+        try {
+          await dataStore.updateProject(project.id, { status: 'failed' });
+        } catch (updateErr) {
+          console.error('[AIDOS] 更新项目状态失败:', updateErr);
+        }
       }
     });
     
