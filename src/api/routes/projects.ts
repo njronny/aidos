@@ -28,12 +28,24 @@ function sortItems<T>(items: T[], sortBy?: string, order: 'asc' | 'desc' = 'asc'
   });
 }
 
-function filterItems<T>(items: T[], search?: string) {
-  if (!search) return items;
-  const s = search.toLowerCase();
-  return (items as any[]).filter(item => 
-    JSON.stringify(item).toLowerCase().includes(s)
-  );
+function filterItems<T>(items: T[], search?: string, status?: string) {
+  let filtered = items;
+  
+  // 按状态筛选
+  if (status) {
+    filtered = (filtered as any[]).filter(item => item.status === status);
+  }
+  
+  // 按关键字搜索
+  if (search) {
+    const s = search.toLowerCase();
+    filtered = (filtered as any[]).filter(item => 
+      (item.name && item.name.toLowerCase().includes(s)) ||
+      (item.description && item.description.toLowerCase().includes(s))
+    );
+  }
+  
+  return filtered;
 }
 
 export async function projectRoutes(fastify: FastifyInstance) {
@@ -43,9 +55,11 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const publicRoutes = [
       '/auth/login',
       '/auth/verify',
+      '/auth/refresh',
       '/health',
       '/api/auth/login',
-      '/api/auth/verify'
+      '/api/auth/verify',
+      '/api/auth/refresh'
     ];
     
     if (publicRoutes.some(route => request.url.startsWith(route))) {
@@ -75,85 +89,16 @@ export async function projectRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Auth endpoints
-  fastify.post('/auth/login', async (request, reply) => {
-    const body = request.body as any;
-    const { username, password } = body || {};
-    if (!username || !password) {
-      return reply.status(400).send({ success: false, error: '用户名和密码不能为空' });
-    }
-    
-    // 从环境变量获取管理员哈希密码
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-    const passwordHash = process.env.ADMIN_PASSWORD_HASH;
-    
-    if (!passwordHash) {
-      console.error('[Auth] ADMIN_PASSWORD_HASH not configured!');
-      return reply.status(500).send({ success: false, error: '服务器配置错误' });
-    }
-    
-    // 验证用户名
-    if (username !== adminUsername) {
-      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
-    }
-    
-    // 使用 bcrypt 验证密码
-    const bcrypt = require('bcrypt');
-    const passwordValid = await bcrypt.compare(password, passwordHash);
-    
-    if (!passwordValid) {
-      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
-    }
-    
-    // 生成 JWT token
-    const jwt = require('jsonwebtoken');
-    const jwtSecret = process.env.JWT_SECRET;
-    const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
-    
-    const token = jwt.sign(
-      { username, role: 'admin' },
-      jwtSecret,
-      { expiresIn: jwtExpiresIn }
-    );
-    
-    return reply.send({ 
-      success: true, 
-      data: { 
-        token, 
-        username: 'admin',
-        expiresIn: jwtExpiresIn
-      } 
-    });
-  });
-
-  fastify.get('/auth/verify', async (request, reply) => {
-    const authHeader = request.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return reply.status(401).send({ success: false, valid: false, error: '未提供 token' });
-    }
-    
-    const token = authHeader.substring(7);
-    const jwtSecret = process.env.JWT_SECRET;
-    
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(token, jwtSecret);
-      return reply.send({ success: true, valid: true, user: decoded });
-    } catch (error) {
-      return reply.status(401).send({ success: false, valid: false, error: 'token 无效或已过期' });
-    }
-  });
-
   // GET /projects - 获取所有项目
   fastify.get<{ Querystring: QueryParams }>('/projects', async (request: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
-    let { page = 1, limit = 10, sort, order = 'asc', search } = request.query;
+    let { page = 1, limit = 10, sort, order = 'asc', search, status } = request.query;
     
     // 限制每页最大数量，防止内存溢出
     limit = Math.min(Math.max(1, limit || 10), 100);
     page = Math.max(1, page || 1);
     
     const projects = await dataStore.getAllProjects();
-    let filtered = filterItems(projects, search);
+    let filtered = filterItems(projects, search, status);
     filtered = sortItems(filtered, sort, order);
     const result = paginateItems(filtered, page, limit);
     return reply.send({ success: true, ...result });
