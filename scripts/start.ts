@@ -23,6 +23,8 @@ import { userRoutes } from '../src/api/routes/users';
 import { monitoringMiddleware, monitoringRoutes } from '../src/api/routes/monitoring';
 import { authMiddleware } from '../src/api/middleware/auth';
 import { requestLogger } from '../src/api/middleware/requestLogger';
+import { apiVersionMiddleware } from '../src/api/middleware/apiVersion';
+import { errorHandler } from '../src/api/middleware/errorHandler';
 import { rateLimit } from '../src/core/ratelimit';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -58,10 +60,31 @@ async function main() {
       openapi: {
         info: {
           title: 'AIDOS API',
-          description: 'AI DevOps System - 全自动AI开发系统API',
+          description: 'AI DevOps System - 全自动AI开发系统API\n\n## 认证\n使用 `/api/auth/login` 获取token，在请求头中添加 `Authorization: Bearer <token>`',
           version: '1.0.0',
+          contact: {
+            name: 'AIDOS Team',
+            url: 'https://github.com/njronny/aidos'
+          },
+          license: {
+            name: 'MIT',
+            url: 'https://opensource.org/licenses/MIT'
+          }
         },
-        servers: [{ url: `http://localhost:${process.env.PORT || 3000}` }],
+        servers: [
+          { url: `http://localhost:${process.env.PORT || 3000}`, description: '本地开发' },
+          { url: 'https://api.aidos.example.com', description: '生产环境' }
+        ],
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT',
+            }
+          }
+        },
+        security: [{ bearerAuth: [] }]
       },
     });
 
@@ -129,6 +152,12 @@ async function main() {
 
     // Register request logger
     await fastify.register(requestLogger);
+
+    // Register API version middleware
+    await fastify.register(apiVersionMiddleware);
+
+    // Register error handler
+    await fastify.register(errorHandler);
 
     // Register monitoring middleware
     await fastify.register(monitoringMiddleware);
