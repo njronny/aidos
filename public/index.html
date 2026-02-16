@@ -324,8 +324,8 @@
       document.getElementById('newRequirementModal').classList.remove('active');
     }
 
-    // API URL 必须在这里定义（在函数之前）
-    var API_URL = 'http://127.0.0.1:3000';
+    // API URL - 支持环境变量配置，默认为 localhost:3000
+    var API_URL = window.AIDOS_API_URL || 'http://localhost:3000';
     var API_URL_FOR_ALL = API_URL;
 
     async function submitRequirement() {

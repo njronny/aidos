@@ -24,9 +24,8 @@
 .hidden {
   display: none !important;
 }
-  --border-light: #475569;
-  
-  /* Status Colors */
+
+/* Status Colors */
   --status-pending: #64748b;
   --status-running: #3b82f6;
   --status-completed: #10b981;
