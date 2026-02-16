@@ -3,6 +3,50 @@ import { dataStore } from '../store';
 import { Requirement, CreateRequirementDto, UpdateRequirementDto, QueryParams } from '../types';
 import { getWorkflowService } from '../../core/workflow';
 
+// Schema 定义
+const requirementSchemas = {
+  create: {
+    body: {
+      type: 'object',
+      required: ['projectId', 'title'],
+      properties: {
+        projectId: { type: 'string', minLength: 1 },
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+        category: { type: 'string', enum: ['feature', 'bug', 'improvement', 'research'], default: 'feature' },
+      },
+    },
+  },
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+        status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'failed'] },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+        category: { type: 'string', enum: ['feature', 'bug', 'improvement', 'research'] },
+      },
+    },
+  },
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', minimum: 1, default: 1 },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+        search: { type: 'string', maxLength: 100 },
+        status: { type: 'string' },
+        projectId: { type: 'string' },
+        priority: { type: 'string' },
+        sort: { type: 'string' },
+        order: { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
+      },
+    },
+  },
+};
+
 function paginateItems<T>(items: T[], page: number, limit: number) {
   const start = (page - 1) * limit;
   const end = start + limit;
@@ -38,7 +82,7 @@ function filterItems<T>(items: T[], search?: string) {
 
 export async function requirementRoutes(fastify: FastifyInstance) {
   // GET /requirements - 获取所有需求
-  fastify.get<{ Querystring: QueryParams & { projectId?: string } }>('/requirements', async (request, reply) => {
+  fastify.get<{ Querystring: QueryParams & { projectId?: string } }>('/requirements', { schema: requirementSchemas.query }, async (request, reply) => {
     const { page = 1, limit = 10, sort, order = 'asc', search, projectId } = request.query;
     const requirements = await dataStore.getAllRequirements({ projectId });
     let filtered = filterItems(requirements, search);
@@ -57,7 +101,7 @@ export async function requirementRoutes(fastify: FastifyInstance) {
   });
 
   // POST /requirements - 创建需求
-  fastify.post<{ Body: CreateRequirementDto }>('/requirements', async (request: FastifyRequest<{ Body: CreateRequirementDto }>, reply: FastifyReply) => {
+  fastify.post<{ Body: CreateRequirementDto }>('/requirements', { schema: requirementSchemas.create }, async (request: FastifyRequest<{ Body: CreateRequirementDto }>, reply: FastifyReply) => {
     const { projectId, title, description, priority } = request.body;
     if (!projectId || !title) {
       return reply.status(400).send({ success: false, error: '项目ID和标题不能为空' });
@@ -84,7 +128,7 @@ export async function requirementRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /requirements/:id - 更新需求
-  fastify.put<{ Params: { id: string }; Body: UpdateRequirementDto }>('/requirements/:id', async (request, reply) => {
+  fastify.put<{ Params: { id: string }; Body: UpdateRequirementDto }>('/requirements/:id', { schema: requirementSchemas.update }, async (request, reply) => {
     const requirement = await dataStore.updateRequirement(request.params.id, request.body);
     if (!requirement) {
       return reply.status(404).send({ success: false, error: '需求不存在' });

@@ -3,6 +3,43 @@ import jwt from 'jsonwebtoken';
 import { dataStore } from '../store';
 import { Project, CreateProjectDto, UpdateProjectDto, QueryParams } from '../types';
 
+// Schema 定义
+const projectSchemas = {
+  create: {
+    body: {
+      type: 'object',
+      required: ['name'],
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+      },
+    },
+  },
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+        status: { type: 'string', enum: ['active', 'completed', 'failed', 'archived'] },
+      },
+    },
+  },
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', minimum: 1, default: 1 },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+        search: { type: 'string', maxLength: 100 },
+        status: { type: 'string', enum: ['active', 'completed', 'failed', 'archived'] },
+        sort: { type: 'string' },
+        order: { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
+      },
+    },
+  },
+};
+
 function paginateItems<T>(items: T[], page: number, limit: number) {
   const start = (page - 1) * limit;
   const end = start + limit;
@@ -90,7 +127,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // GET /projects - 获取所有项目
-  fastify.get<{ Querystring: QueryParams }>('/projects', async (request: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
+  fastify.get<{ Querystring: QueryParams }>('/projects', { schema: projectSchemas.query }, async (request: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
     let { page = 1, limit = 10, sort, order = 'asc', search, status } = request.query;
     
     // 限制每页最大数量，防止内存溢出
@@ -114,7 +151,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // POST /projects - 创建项目
-  fastify.post<{ Body: CreateProjectDto }>('/projects', async (request: FastifyRequest<{ Body: CreateProjectDto }>, reply: FastifyReply) => {
+  fastify.post<{ Body: CreateProjectDto }>('/projects', { schema: projectSchemas.create }, async (request: FastifyRequest<{ Body: CreateProjectDto }>, reply: FastifyReply) => {
     const { name, description } = request.body;
     if (!name) {
       return reply.status(400).send({ success: false, error: '项目名称不能为空' });
@@ -207,7 +244,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /projects/:id - 更新项目
-  fastify.put<{ Params: { id: string }; Body: UpdateProjectDto }>('/projects/:id', async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateProjectDto }>, reply: FastifyReply) => {
+  fastify.put<{ Params: { id: string }; Body: UpdateProjectDto }>('/projects/:id', { schema: projectSchemas.update }, async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateProjectDto }>, reply: FastifyReply) => {
     const project = await dataStore.updateProject(request.params.id, request.body);
     if (!project) {
       return reply.status(404).send({ success: false, error: '项目不存在' });

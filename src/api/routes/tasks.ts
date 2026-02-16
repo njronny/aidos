@@ -2,6 +2,50 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dataStore } from '../store';
 import { Task, CreateTaskDto, UpdateTaskDto, QueryParams } from '../types';
 
+// Schema 定义
+const taskSchemas = {
+  create: {
+    body: {
+      type: 'object',
+      required: ['requirementId', 'title'],
+      properties: {
+        requirementId: { type: 'string', minLength: 1 },
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+        agentId: { type: 'string' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+      },
+    },
+  },
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+        status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+        result: { type: 'string' },
+      },
+    },
+  },
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'integer', minimum: 1, default: 1 },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+        search: { type: 'string', maxLength: 100 },
+        status: { type: 'string' },
+        requirementId: { type: 'string' },
+        agentId: { type: 'string' },
+        sort: { type: 'string' },
+        order: { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
+      },
+    },
+  },
+};
+
 function paginateItems<T>(items: T[], page: number, limit: number) {
   const start = (page - 1) * limit;
   const end = start + limit;
@@ -40,7 +84,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.decorate('dataStore', dataStore);
 
   // GET /tasks - 获取所有任务
-  fastify.get<{ Querystring: QueryParams & { requirementId?: string; agentId?: string } }>('/tasks', async (request, reply) => {
+  fastify.get<{ Querystring: QueryParams & { requirementId?: string; agentId?: string } }>('/tasks', { schema: taskSchemas.query }, async (request, reply) => {
     let { page = 1, limit = 10, sort, order = 'asc', search, requirementId, agentId } = request.query;
     
     // 限制每页最大数量，防止内存溢出
@@ -64,7 +108,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // POST /tasks - 创建任务
-  fastify.post<{ Body: CreateTaskDto }>('/tasks', async (request: FastifyRequest<{ Body: CreateTaskDto }>, reply: FastifyReply) => {
+  fastify.post<{ Body: CreateTaskDto }>('/tasks', { schema: taskSchemas.create }, async (request: FastifyRequest<{ Body: CreateTaskDto }>, reply: FastifyReply) => {
     const { requirementId, title, description, agentId } = request.body;
     if (!requirementId || !title) {
       return reply.status(400).send({ success: false, error: '需求ID和标题不能为空' });
@@ -74,7 +118,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /tasks/:id - 更新任务
-  fastify.put<{ Params: { id: string }; Body: UpdateTaskDto }>('/tasks/:id', async (request, reply) => {
+  fastify.put<{ Params: { id: string }; Body: UpdateTaskDto }>('/tasks/:id', { schema: taskSchemas.update }, async (request, reply) => {
     const task = await dataStore.updateTask(request.params.id, request.body);
     if (!task) {
       return reply.status(404).send({ success: false, error: '任务不存在' });
