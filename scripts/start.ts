@@ -11,6 +11,7 @@ import 'dotenv/config';
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
 import websocket from '@fastify/websocket';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -117,6 +118,9 @@ async function main() {
         },
       },
     });
+
+    // Register compression
+    await fastify.register(compress);
 
     // Register Rate Limit - 100 requests per minute
     await fastify.register(rateLimit, {
