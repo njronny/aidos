@@ -20,7 +20,9 @@ import { taskRoutes } from '../src/api/routes/tasks';
 import { agentRoutes } from '../src/api/routes/agents';
 import { authRoutes } from '../src/api/routes/auth';
 import { userRoutes } from '../src/api/routes/users';
+import { systemRoutes } from '../src/api/routes/system';
 import { monitoringMiddleware, monitoringRoutes } from '../src/api/routes/monitoring';
+import { cacheMiddleware } from '../src/api/middleware/cache';
 import { authMiddleware } from '../src/api/middleware/auth';
 import { requestLogger } from '../src/api/middleware/requestLogger';
 import { apiVersionMiddleware } from '../src/api/middleware/apiVersion';
@@ -164,6 +166,12 @@ async function main() {
 
     // Register monitoring routes
     await fastify.register(monitoringRoutes, { prefix: '/api' });
+
+    // Register system routes (admin only)
+    await fastify.register(systemRoutes, { prefix: '/api' });
+
+    // Register cache middleware
+    await fastify.register(cacheMiddleware, { ttl: 30000 });
 
     // Register routes
     await fastify.register(projectRoutes, { prefix: '/api' });
