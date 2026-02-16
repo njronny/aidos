@@ -146,7 +146,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // GET /projects - 获取所有项目
   fastify.get<{ Querystring: QueryParams }>('/projects', async (request: FastifyRequest<{ Querystring: QueryParams }>, reply: FastifyReply) => {
-    const { page = 1, limit = 10, sort, order = 'asc', search } = request.query;
+    let { page = 1, limit = 10, sort, order = 'asc', search } = request.query;
+    
+    // 限制每页最大数量，防止内存溢出
+    limit = Math.min(Math.max(1, limit || 10), 100);
+    page = Math.max(1, page || 1);
+    
     const projects = await dataStore.getAllProjects();
     let filtered = filterItems(projects, search);
     filtered = sortItems(filtered, sort, order);

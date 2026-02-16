@@ -41,7 +41,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // GET /tasks - 获取所有任务
   fastify.get<{ Querystring: QueryParams & { requirementId?: string; agentId?: string } }>('/tasks', async (request, reply) => {
-    const { page = 1, limit = 10, sort, order = 'asc', search, requirementId, agentId } = request.query;
+    let { page = 1, limit = 10, sort, order = 'asc', search, requirementId, agentId } = request.query;
+    
+    // 限制每页最大数量，防止内存溢出
+    limit = Math.min(Math.max(1, limit || 10), 100);
+    page = Math.max(1, page || 1);
+    
     const tasks = await dataStore.getAllTasks({ requirementId, agentId });
     let filtered = filterItems(tasks, search);
     filtered = sortItems(filtered, sort, order);

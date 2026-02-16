@@ -18,7 +18,16 @@ export function getDatabase(): Knex {
  * 创建数据库连接
  */
 export function createConnection(config: DatabaseConfig): Knex {
-  return knex(config);
+  const db = knex(config);
+  
+  // SQLite 启用外键约束
+  if (config.client === 'better-sqlite3' || config.client === 'sqlite3') {
+    db.raw('PRAGMA foreign_keys = ON').catch(err => {
+      console.warn('Failed to enable foreign keys:', err.message);
+    });
+  }
+  
+  return db;
 }
 
 /**
