@@ -425,6 +425,27 @@
       Dashboard.refresh();
       loadProjects();
       TaskList.refresh();
+      
+      // 快捷键支持
+      // Ctrl+N: 新建需求
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'n') {
+          e.preventDefault();
+          showNewRequirementModal();
+        }
+        // Escape: 关闭弹窗
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+      });
+      
+      // 显示快捷键提示（仅首次）
+      if (!localStorage.getItem('aidos_shortcuts_shown')) {
+        setTimeout(() => {
+          console.info('💡 AIDOS 快捷键: Ctrl+N 新建需求 | Esc 关闭弹窗');
+          localStorage.setItem('aidos_shortcuts_shown', 'true');
+        }, 2000);
+      }
     });
 
     // Close modal on outside click
