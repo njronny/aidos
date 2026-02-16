@@ -13,6 +13,8 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
 import websocket from '@fastify/websocket';
+import multipart from '@fastify/multipart';
+import { uploadRoutes } from '../src/api/routes/upload';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { projectRoutes } from '../src/api/routes/projects';
@@ -133,6 +135,16 @@ async function main() {
 
     // Register WebSocket
     await fastify.register(websocket);
+
+    // Register multipart for file uploads
+    await fastify.register(multipart, {
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+      },
+    });
+
+    // Register upload routes
+    await fastify.register(uploadRoutes, { prefix: '/api' });
 
     // WebSocket endpoint
     fastify.get('/ws', { websocket: true }, (socket, req) => {
