@@ -1,6 +1,72 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dataStore } from '../store';
 
+// Schema 定义
+const batchSchemas = {
+  createTasks: {
+    body: {
+      type: 'object',
+      required: ['requirementId', 'tasks'],
+      properties: {
+        requirementId: { type: 'string', minLength: 1 },
+        tasks: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 50,
+          items: {
+            type: 'object',
+            required: ['title'],
+            properties: {
+              title: { type: 'string', minLength: 1, maxLength: 200 },
+              description: { type: 'string', maxLength: 5000 },
+            },
+          },
+        },
+      },
+    },
+  },
+  updateTasksStatus: {
+    body: {
+      type: 'object',
+      required: ['taskIds', 'status'],
+      properties: {
+        taskIds: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
+        status: { type: 'string', enum: ['pending', 'assigned', 'in_progress', 'completed', 'failed'] },
+      },
+    },
+  },
+  deleteTasks: {
+    body: {
+      type: 'object',
+      required: ['taskIds'],
+      properties: {
+        taskIds: { type: 'array', minItems: 1, items: { type: 'string', minLength: 1 } },
+      },
+    },
+  },
+  createProjects: {
+    body: {
+      type: 'object',
+      required: ['projects'],
+      properties: {
+        projects: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 20,
+          items: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: { type: 'string', minLength: 1, maxLength: 200 },
+              description: { type: 'string', maxLength: 5000 },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 interface BatchTaskBody {
   requirementId: string;
   tasks: Array<{
@@ -14,9 +80,44 @@ interface BatchStatusBody {
   status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'failed';
 }
 
+// Schema 定义
+const batchSchemas = {
+  createTasks: {
+    body: {
+      type: 'object',
+      required: ['requirementId', 'tasks'],
+      properties: {
+        requirementId: { type: 'string', minLength: 1 },
+        tasks: { 
+          type: 'array', 
+          items: {
+            type: 'object',
+            required: ['title'],
+            properties: {
+              title: { type: 'string', minLength: 1, maxLength: 200 },
+              description: { type: 'string', maxLength: 5000 }
+            }
+          },
+          maxItems: 50 
+        },
+      },
+    },
+  },
+  updateStatus: {
+    body: {
+      type: 'object',
+      required: ['taskIds', 'status'],
+      properties: {
+        taskIds: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        status: { type: 'string', enum: ['pending', 'assigned', 'in_progress', 'completed', 'failed'] },
+      },
+    },
+  },
+};
+
 export async function batchRoutes(fastify: FastifyInstance) {
   // POST /api/batch/tasks - 批量创建任务
-  fastify.post('/batch/tasks', async (request: FastifyRequest<{ Body: BatchTaskBody }>, reply) => {
+  fastify.post('/batch/tasks', { schema: { body: batchSchemas.createTasks.body } }, async (request: FastifyRequest<{ Body: BatchTaskBody }>, reply) => {
     const { requirementId, tasks } = request.body;
 
     if (!requirementId || !tasks || !Array.isArray(tasks)) {
@@ -61,7 +162,7 @@ export async function batchRoutes(fastify: FastifyInstance) {
   });
 
   // PUT /api/batch/tasks/status - 批量更新任务状态
-  fastify.put('/batch/tasks/status', async (request: FastifyRequest<{ Body: BatchStatusBody }>, reply) => {
+  fastify.put('/batch/tasks/status', { schema: { body: batchSchemas.updateStatus.body } }, async (request: FastifyRequest<{ Body: BatchStatusBody }>, reply) => {
     const { taskIds, status } = request.body;
 
     if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
