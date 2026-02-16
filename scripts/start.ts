@@ -18,6 +18,8 @@ import { projectRoutes } from '../src/api/routes/projects';
 import { requirementRoutes } from '../src/api/routes/requirements';
 import { taskRoutes } from '../src/api/routes/tasks';
 import { agentRoutes } from '../src/api/routes/agents';
+import { authRoutes } from '../src/api/routes/auth';
+import { userRoutes } from '../src/api/routes/users';
 import { authMiddleware } from '../src/api/middleware/auth';
 import { rateLimit } from '../src/core/ratelimit';
 
@@ -128,6 +130,8 @@ async function main() {
     await fastify.register(requirementRoutes, { prefix: '/api' });
     await fastify.register(taskRoutes, { prefix: '/api' });
     await fastify.register(agentRoutes, { prefix: '/api' });
+    await fastify.register(authRoutes, { prefix: '/api' });
+    await fastify.register(userRoutes, { prefix: '/api' });
 
     // Health check (基础)
     fastify.get('/health', async (request, reply) => {
