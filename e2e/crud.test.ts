@@ -92,7 +92,7 @@ test.describe('Complete CRUD Operations', () => {
       console.log(`✅ Project read: ${id}`);
     });
 
-    test.skip('should update a project', async ({ request }) => {
+    test('should update a project', async ({ request }) => {
       // Create first
       const createResponse = await request.post('/api/projects', {
         data: { name: 'Update Test Project' },
@@ -108,7 +108,6 @@ test.describe('Complete CRUD Operations', () => {
           status: 'in_progress',
         },
       });
-      true; // skip
       const updateData = await updateResponse.json() as { success: boolean; data: Project };
       expect(updateData.data.name).toBe('Updated Project Name');
       expect(updateData.data.description).toBe('Updated description');
@@ -429,7 +428,7 @@ test.describe('Complete CRUD Operations', () => {
       console.log(`✅ Listed ${data.data.length} tasks for requirement ${requirementId}`);
     });
 
-    test.skip('should filter tasks by status', async ({ request }) => {
+    test('should filter tasks by status', async ({ request }) => {
       // Create tasks with different statuses
       const task1 = await request.post('/api/tasks', {
         data: { requirementId, title: 'Pending Task', status: 'pending' },

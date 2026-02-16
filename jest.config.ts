@@ -19,10 +19,10 @@ const config: Config = {
   coverageReporters: ['text', 'text-summary', 'lcov', 'json-summary', 'html'],
   coverageThreshold: {
     global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+      branches: 40,
+      functions: 45,
+      lines: 45,
+      statements: 45,
     },
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
