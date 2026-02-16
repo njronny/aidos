@@ -1,110 +1,84 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { monitoringService } from '../../core/monitoring/MonitoringService';
+import promClient from 'prom-client';
 
-interface MetricsQuery {
-  name?: string;
-  limit?: number;
-}
+// 创建收集器
+const register = new promClient.Registry();
 
-interface AlertsQuery {
-  resolved?: boolean;
-  limit?: number;
+// 添加默认指标
+promClient.collectDefaultMetrics({ register });
+
+// HTTP请求计数器
+const httpRequestsTotal = new promClient.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status'],
+  registers: [register],
+});
+
+// HTTP请求延迟直方图
+const httpRequestDuration = new promClient.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status'],
+  buckets: [0.01, 0.05, 0.1, 0.5, 1, 5],
+  registers: [register],
+});
+
+export function monitoringMiddleware(fastify: FastifyInstance) {
+  fastify.addHook('onRequest', async (request: FastifyRequest) => {
+    request.startTime = process.hrtime.bigint();
+  });
+
+  fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.url === '/metrics') return; // 跳过metrics端点
+    
+    const duration = Number(process.hrtime.bigint() - (request as any).startTime) / 1e9;
+    const route = request.routeOptions?.url || request.url;
+    
+    httpRequestsTotal.inc({
+      method: request.method,
+      route,
+      status: reply.statusCode,
+    });
+    
+    httpRequestDuration.observe({
+      method: request.method,
+      route,
+      status: reply.statusCode,
+    }, duration);
+  });
 }
 
 export async function monitoringRoutes(fastify: FastifyInstance) {
-  // 启动监控服务
-  monitoringService.start(30000);
-
-  // GET /api/monitoring/health - 健康检查
-  fastify.get('/monitoring/health', async (request, reply) => {
-    try {
-      const health = await monitoringService.getHealthStatus();
-      return {
-        success: true,
-        data: health,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+  // Prometheus metrics 端点
+  fastify.get('/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
+    reply.header('Content-Type', register.contentType);
+    return register.metrics();
   });
 
-  // GET /api/monitoring/metrics - 指标数据
-  fastify.get('/monitoring/metrics', async (request: FastifyRequest<{ Querystring: MetricsQuery }>, reply) => {
-    const { name, limit = 100 } = request.query;
+  // 简单监控数据
+  fastify.get('/monitoring/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
+    const memUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
     
-    const metrics = monitoringService.getMetrics(name, limit);
-    
-    return {
-      success: true,
-      data: metrics,
-    };
-  });
-
-  // POST /api/monitoring/metrics - 记录自定义指标
-  fastify.post('/monitoring/metrics', async (request: FastifyRequest<{ Body: { name: string; value: number; unit?: string } }>, reply) => {
-    const { name, value, unit } = request.body;
-    
-    if (!name || value === undefined) {
-      return reply.status(400).send({ success: false, error: 'name and value are required' });
-    }
-    
-    monitoringService.recordCustomMetric(name, value, unit);
-    
-    return {
-      success: true,
-      message: 'Metric recorded',
-    };
-  });
-
-  // GET /api/monitoring/alerts - 告警列表
-  fastify.get('/monitoring/alerts', async (request: FastifyRequest<{ Querystring: AlertsQuery }>, reply) => {
-    const { resolved, limit = 50 } = request.query;
-    
-    const alerts = monitoringService.getAlerts(resolved, limit);
-    
-    return {
-      success: true,
-      data: alerts,
-    };
-  });
-
-  // PUT /api/monitoring/alerts/:id/resolve - 解决告警
-  fastify.put('/monitoring/alerts/:id/resolve', async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
-    const { id } = request.params;
-    
-    const resolved = monitoringService.resolveAlert(id);
-    
-    return {
-      success: resolved,
-      message: resolved ? 'Alert resolved' : 'Alert not found',
-    };
-  });
-
-  // GET /api/monitoring/summary - 监控摘要
-  fastify.get('/monitoring/summary', async (request, reply) => {
-    const summary = monitoringService.getSummary();
-    
-    return {
+    return reply.send({
       success: true,
       data: {
-        ...summary,
-        uptime: Math.floor(summary.uptime / 1000), // 转换为秒
-      },
-    };
-  });
-
-  // PUT /api/monitoring/thresholds - 更新告警阈值
-  fastify.put('/monitoring/thresholds', async (request: FastifyRequest<{ Body: { cpu?: number; memory?: number; disk?: number } }>, reply) => {
-    const { cpu, memory, disk } = request.body;
-    
-    monitoringService.setThresholds({ cpu, memory, disk });
-    
-    return {
-      success: true,
-      message: 'Thresholds updated',
-    };
+        memory: {
+          heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+          heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+          rss: Math.round(memUsage.rss / 1024 / 1024) + 'MB',
+        },
+        cpu: {
+          user: cpuUsage.user,
+          system: cpuUsage.system,
+        },
+        uptime: process.uptime(),
+        pid: process.pid,
+        platform: process.platform,
+      }
+    });
   });
 }
+
+export { register };

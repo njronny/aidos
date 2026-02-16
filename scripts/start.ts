@@ -20,6 +20,7 @@ import { taskRoutes } from '../src/api/routes/tasks';
 import { agentRoutes } from '../src/api/routes/agents';
 import { authRoutes } from '../src/api/routes/auth';
 import { userRoutes } from '../src/api/routes/users';
+import { monitoringMiddleware, monitoringRoutes } from '../src/api/routes/monitoring';
 import { authMiddleware } from '../src/api/middleware/auth';
 import { rateLimit } from '../src/core/ratelimit';
 
@@ -124,6 +125,12 @@ async function main() {
 
     // Register auth middleware (global) - 必须在路由之前注册
     await fastify.register(authMiddleware);
+
+    // Register monitoring middleware
+    await fastify.register(monitoringMiddleware);
+
+    // Register monitoring routes
+    await fastify.register(monitoringRoutes, { prefix: '/api' });
 
     // Register routes
     await fastify.register(projectRoutes, { prefix: '/api' });
