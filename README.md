@@ -4,6 +4,9 @@
   <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/TypeScript-5.3+-3178c6" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-20+-339933" alt="Node.js">
+  <img src="https://img.shields.io/badge/Fastify-5.0+-000000" alt="Fastify">
+  <a href="https://github.com/njronny/aidos/actions/workflows/ci.yml"><img src="https://github.com/njronny/aidos/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 > 全自动AI开发系统 - 输入需求 → 自动分析 → 任务拆分 → 多代理并行开发 → Git提交 → 自动测试 → 自动修复 → 可视化流程
