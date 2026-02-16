@@ -22,6 +22,7 @@ import { authRoutes } from '../src/api/routes/auth';
 import { userRoutes } from '../src/api/routes/users';
 import { monitoringMiddleware, monitoringRoutes } from '../src/api/routes/monitoring';
 import { authMiddleware } from '../src/api/middleware/auth';
+import { requestLogger } from '../src/api/middleware/requestLogger';
 import { rateLimit } from '../src/core/ratelimit';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -125,6 +126,9 @@ async function main() {
 
     // Register auth middleware (global) - 必须在路由之前注册
     await fastify.register(authMiddleware);
+
+    // Register request logger
+    await fastify.register(requestLogger);
 
     // Register monitoring middleware
     await fastify.register(monitoringMiddleware);
