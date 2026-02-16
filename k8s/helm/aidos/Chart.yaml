@@ -1,0 +1,14 @@
+apiVersion: v2
+name: aidos
+description: AI DevOps System - 全自动AI开发系统
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - devops
+  - automation
+  - agents
+maintainers:
+  - name: AIDOS Team
+    url: https://github.com/njronny/aidos
