@@ -8,6 +8,21 @@ interface StatsQuery {
   agentId?: string;
 }
 
+// Schema 定义
+const analyticsSchemas = {
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        startDate: { type: 'string', format: 'date' },
+        endDate: { type: 'string', format: 'date' },
+        agentId: { type: 'string' },
+        projectId: { type: 'string' },
+      },
+    },
+  },
+};
+
 export async function analyticsRoutes(fastify: FastifyInstance) {
   // GET /api/analytics/summary - 综合统计
   fastify.get('/analytics/summary', async (request, reply) => {
