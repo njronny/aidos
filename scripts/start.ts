@@ -20,9 +20,29 @@ import { agentRoutes } from '../src/api/routes/agents';
 import { authMiddleware } from '../src/api/middleware/auth';
 import { rateLimit } from '../src/core/ratelimit';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const fastify = Fastify({
-  logger: {
-    level: 'info',
+  logger: isProduction ? {
+    level: process.env.LOG_LEVEL || 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: false,
+        translateTime: 'SYS:standard',
+        ignore: 'pid,hostname',
+      },
+    },
+  } : {
+    level: 'debug',
+    transport: {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname',
+      },
+    },
   },
 });
 
@@ -96,13 +116,51 @@ async function main() {
     await fastify.register(taskRoutes, { prefix: '/api' });
     await fastify.register(agentRoutes, { prefix: '/api' });
 
-    // Health check
+    // Health check (基础)
     fastify.get('/health', async (request, reply) => {
       return {
         success: true,
         message: 'Aidos API Server is running',
         timestamp: new Date().toISOString(),
       };
+    });
+
+    // Health check (详细 - 用于K8s/K8s probes)
+    fastify.get('/health/ready', async (request, reply) => {
+      try {
+        // 检查数据库连接
+        const { testConnection } = await import('../src/infrastructure/database/connection');
+        const dbOk = await testConnection();
+        
+        if (!dbOk) {
+          return reply.status(503).send({
+            success: false,
+            status: 'unhealthy',
+            checks: { database: 'disconnected' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        
+        return reply.send({
+          success: true,
+          status: 'healthy',
+          checks: { database: 'connected' },
+          uptime: process.uptime(),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        return reply.status(503).send({
+          success: false,
+          status: 'unhealthy',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // Liveness probe (K8s)
+    fastify.get('/health/live', async (request, reply) => {
+      return reply.send({ success: true, status: 'alive' });
     });
 
     // API info
