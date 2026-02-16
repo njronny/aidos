@@ -15,6 +15,32 @@ interface UpdateUserDto {
   status?: string;
 }
 
+// Schema 定义
+const userSchemas = {
+  create: {
+    body: {
+      type: 'object',
+      required: ['username', 'password'],
+      properties: {
+        username: { type: 'string', minLength: 3, maxLength: 50 },
+        password: { type: 'string', minLength: 6, maxLength: 100 },
+        email: { type: 'string', format: 'email' },
+        role: { type: 'string', enum: ['admin', 'user', 'readonly'], default: 'user' },
+      },
+    },
+  },
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', format: 'email' },
+        role: { type: 'string', enum: ['admin', 'user', 'readonly'] },
+        status: { type: 'string', enum: ['active', 'inactive', 'suspended'] },
+      },
+    },
+  },
+};
+
 // 获取环境变量
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret';
 
@@ -58,7 +84,7 @@ export async function userRoutes(fastify: FastifyInstance) {
   });
 
   // 创建用户 (仅管理员)
-  fastify.post<{ Body: CreateUserDto }>('/users', async (request: FastifyRequest<{ Body: CreateUserDto }>, reply: FastifyReply) => {
+  fastify.post<{ Body: CreateUserDto }>('/users', { schema: userSchemas.create }, async (request: FastifyRequest<{ Body: CreateUserDto }>, reply: FastifyReply) => {
     const adminUser = (request as any).user;
     if (!adminUser || adminUser.role !== 'admin') {
       return reply.status(403).send({ success: false, error: '需要管理员权限' });
@@ -83,7 +109,7 @@ export async function userRoutes(fastify: FastifyInstance) {
   });
 
   // 更新用户 (仅管理员)
-  fastify.put<{ Params: { id: string }; Body: UpdateUserDto }>('/users/:id', async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserDto }>, reply: FastifyReply) => {
+  fastify.put<{ Params: { id: string }; Body: UpdateUserDto }>('/users/:id', { schema: userSchemas.update }, async (request: FastifyRequest<{ Params: { id: string }; Body: UpdateUserDto }>, reply: FastifyReply) => {
     const adminUser = (request as any).user;
     if (!adminUser || adminUser.role !== 'admin') {
       return reply.status(403).send({ success: false, error: '需要管理员权限' });
