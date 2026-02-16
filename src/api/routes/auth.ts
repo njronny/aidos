@@ -1,5 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
+
+// 从环境变量获取密码哈希
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 
 export async function authRoutes(fastify: FastifyInstance) {
   // POST /api/auth/login - 用户登录
@@ -11,9 +15,18 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ success: false, error: '用户名和密码不能为空' });
     }
     
-    if (username === 'admin' && password === 'aidos123') {
-      const token = uuidv4();
-      return reply.send({ success: true, data: { token, username: 'admin' } });
+    // 验证用户名
+    if (username !== 'admin') {
+      return reply.status(401).send({ success: false, error: '用户名或密码错误' });
+    }
+    
+    // 使用bcrypt验证密码
+    if (ADMIN_PASSWORD_HASH) {
+      const validPassword = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+      if (validPassword) {
+        const token = uuidv4();
+        return reply.send({ success: true, data: { token, username: 'admin' } });
+      }
     }
     
     return reply.status(401).send({ success: false, error: '用户名或密码错误' });
