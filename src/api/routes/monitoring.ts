@@ -1,6 +1,18 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import promClient from 'prom-client';
 
+// Schema 定义
+const monitoringSchemas = {
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['json', 'prometheus'], default: 'json' },
+      },
+    },
+  },
+};
+
 // 创建收集器
 const register = new promClient.Registry();
 

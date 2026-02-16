@@ -13,6 +13,18 @@ interface ScheduledTask {
   nextRun?: string;
 }
 
+// Schema 定义
+const scheduledTaskSchemas = {
+  update: {
+    body: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+      },
+    },
+  },
+};
+
 // 模拟定时任务存储
 const scheduledTasks: Map<string, ScheduledTask> = new Map([
   ['backup', { id: 'backup', name: '数据库备份', schedule: '0 2 * * *', enabled: true }],
