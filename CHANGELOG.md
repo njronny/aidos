@@ -1,45 +1,80 @@
 # CHANGELOG
 
-所有项目变更都将记录在此文件中。
+# 更新日志
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
+## [1.0.0] - 2026-02-16
 
-## [1.0.0] - 2026-02-13
+### 新增
+- **认证系统**
+  - JWT + bcrypt 密码加密
+  - Token 刷新机制
+  - Token 黑名单登出
+  - 角色权限 (admin/user/readonly)
+  
+- **API 功能**
+  - 用户管理 CRUD
+  - 项目搜索 + 状态筛选
+  - 配置管理 API
+  - 定时任务管理
+  - 系统管理 API
+  - 审计日志
+  - API 使用统计
+  
+- **监控**
+  - Prometheus 指标
+  - 健康检查端点
+  - 系统资源监控
+  - 请求日志
+  
+- **生产特性**
+  - Rate Limit 限流
+  - Helmet 安全头
+  - 优雅关闭
+  - 结构化日志
+  - 请求验证 Schema
+  - API 版本控制
+  - 全局错误处理
+  - 缓存中间件
+  
+- **部署**
+  - Docker Compose 生产配置
+  - CI/CD GitHub Actions
+  - 数据库备份脚本
+  - 生产检查清单
+  - 性能优化指南
 
-### Added
-- 项目初始化完成
-- 核心模块框架搭建
-  - 需求分析器 (RequirementAnalyzer)
-  - 任务调度器 (TaskScheduler)
-  - 上下文管理器 (ContextManager)
-  - GitOps 管理器
-  - 自动修复引擎 (AutoFix)
-  - 可视化引擎 (Visualizer)
-  - 消息通知器 (Notifier)
-  - 技能加载器 (SkillLoader)
-  - 代理池 (AgentPool)
-- 多代理团队系统实现
-- REST API 服务搭建 (Fastify)
-- WebSocket 实时通信支持
-- SQLite/PostgreSQL 数据库支持
-- 单元测试框架 (Jest)
-- 端到端测试框架 (Playwright)
-- 代码规范检查 (ESLint + Prettier)
-- 完整项目文档
-  - 产品需求文档 (PRD)
-  - 系统架构文档
-  - 数据库设计文档
-  - 测试计划
-  - 代码审查指南
+### 改进
+- 前端加载骨架屏
+- 任务流程图状态颜色
+- 快捷键支持 (Ctrl+N, Esc)
+- Swagger API 文档增强
+- README 徽章
 
-### Technical
-- 使用 TypeScript 5.3+ 开发
-- 基于 Fastify 的高性能 API
-- 支持 SQLite（开发）/ PostgreSQL（生产）
-- 集成 CI/CD 流程
+### 修复
+- Playwright 端口配置
+- 数据库外键约束
+- 内存分页限制
+- CSS 语法错误
+- 前端 API 配置化
+- 工作流失败状态更新
 
 ---
 
-## 版本历史说明
+## [0.9.0] - 2026-02-15
 
-- **1.0.0**: 初始版本，包含完整的AI开发代理系统框架
+### 新增
+- AI 代理团队 (6种角色)
+- 需求 → 开发 → 测试 → 提交 流程
+- Web UI 仪表盘
+- WebSocket 实时更新
+- SQLite 数据库
+- E2E 测试
+
+---
+
+## [0.1.0] - 2026-02-13
+
+### 新增
+- 项目初始化
+- 基础 API 路由
+- 任务调度器
