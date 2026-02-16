@@ -2,7 +2,27 @@
  * 配置管理模块
  */
 
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+// Schema 定义
+const configSchemas = {
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        includeSensitive: { type: 'boolean', default: false },
+      },
+    },
+  },
+  publicQuery: {
+    querystring: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['full', 'minimal'], default: 'minimal' },
+      },
+    },
+  },
+};
 
 interface AppConfig {
   // 应用配置
@@ -75,8 +95,24 @@ export function getConfig(): AppConfig {
 export async function configRoutes(fastify: FastifyInstance) {
   
   // 获取公开配置
-  fastify.get('/config/public', async (request, reply) => {
+  fastify.get<{ Querystring: { format?: 'full' | 'minimal' } }>('/config/public', { schema: configSchemas.publicQuery }, async (request: FastifyRequest<{ Querystring: { format?: 'full' | 'minimal' } }>, reply: FastifyReply) => {
     const config = getConfig();
+    const { format = 'minimal' } = request.query;
+    
+    if (format === 'full') {
+      return reply.send({
+        success: true,
+        data: {
+          name: config.app.name,
+          version: config.app.version,
+          environment: config.app.environment,
+          api: {
+            port: config.api.port,
+            host: config.api.host,
+          },
+        }
+      });
+    }
     
     return reply.send({
       success: true,
@@ -89,20 +125,23 @@ export async function configRoutes(fastify: FastifyInstance) {
   });
 
   // 获取完整配置 (仅管理员)
-  fastify.get('/config', async (request, reply) => {
+  fastify.get<{ Querystring: { includeSensitive?: boolean } }>('/config', { schema: configSchemas.query }, async (request: FastifyRequest<{ Querystring: { includeSensitive?: boolean } }>, reply: FastifyReply) => {
     const adminUser = (request as any).user;
     if (!adminUser || adminUser.role !== 'admin') {
       return reply.status(403).send({ success: false, error: '需要管理员权限' });
     }
     
     const config = getConfig();
+    const { includeSensitive = false } = request.query;
     
-    // 隐藏敏感信息
+    // 隐藏敏感信息，除非明确请求
     return reply.send({
       success: true,
       data: {
-        ...config,
-        auth: '***', // 隐藏认证配置
+        app: config.app,
+        api: config.api,
+        database: config.database,
+        auth: includeSensitive ? config.auth : '***',
       }
     });
   });

@@ -1,6 +1,37 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dataStore } from '../store';
 
+// Schema 定义
+const exportSchemas = {
+  query: {
+    querystring: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+        type: { type: 'string', enum: ['tasks', 'projects', 'requirements'], default: 'tasks' },
+        status: { type: 'string', maxLength: 50 },
+      },
+    },
+  },
+  projectsQuery: {
+    querystring: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+      },
+    },
+  },
+  tasksQuery: {
+    querystring: {
+      type: 'object',
+      properties: {
+        format: { type: 'string', enum: ['json', 'csv'], default: 'json' },
+        status: { type: 'string', maxLength: 50 },
+      },
+    },
+  },
+};
+
 interface ExportQuery {
   format?: 'json' | 'csv';
   type?: 'tasks' | 'projects' | 'requirements';
@@ -9,7 +40,7 @@ interface ExportQuery {
 
 export async function exportRoutes(fastify: FastifyInstance) {
   // GET /api/export - 导出数据
-  fastify.get('/export', async (request: FastifyRequest<{ Querystring: ExportQuery }>, reply) => {
+  fastify.get<{ Querystring: ExportQuery }>('/export', { schema: exportSchemas.query }, async (request: FastifyRequest<{ Querystring: ExportQuery }>, reply) => {
     const { format = 'json', type = 'tasks', status } = request.query;
 
     let data: any[] = [];
@@ -63,7 +94,7 @@ export async function exportRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/export/projects - 导出项目
-  fastify.get('/export/projects', async (request: FastifyRequest<{ Querystring: { format?: 'json' | 'csv' } }>, reply) => {
+  fastify.get<{ Querystring: { format?: 'json' | 'csv' } }>('/export/projects', { schema: exportSchemas.projectsQuery }, async (request: FastifyRequest<{ Querystring: { format?: 'json' | 'csv' } }>, reply) => {
     const { format = 'json' } = request.query;
     const projects = await dataStore.getAllProjects();
 
@@ -85,7 +116,7 @@ export async function exportRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/export/tasks - 导出任务
-  fastify.get('/export/tasks', async (request: FastifyRequest<{ Querystring: { format?: 'json' | 'csv'; status?: string } }>, reply) => {
+  fastify.get<{ Querystring: { format?: 'json' | 'csv'; status?: string } }>('/export/tasks', { schema: exportSchemas.tasksQuery }, async (request: FastifyRequest<{ Querystring: { format?: 'json' | 'csv'; status?: string } }>, reply) => {
     const { format = 'json', status } = request.query;
     let tasks = await dataStore.getAllTasks();
     

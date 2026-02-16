@@ -1,17 +1,89 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { templateService } from '../../core/templates/TemplateService';
 
+// Schema 定义
+const templateSchemas = {
+  projectQuery: {
+    querystring: {
+      type: 'object',
+      properties: {
+        category: { type: 'string' },
+        search: { type: 'string', maxLength: 100 },
+      },
+    },
+  },
+  taskQuery: {
+    querystring: {
+      type: 'object',
+      properties: {
+        type: { type: 'string' },
+        agentId: { type: 'string' },
+      },
+    },
+  },
+  createProject: {
+    body: {
+      type: 'object',
+      required: ['templateId'],
+      properties: {
+        templateId: { type: 'string', minLength: 1 },
+        name: { type: 'string', maxLength: 200 },
+        description: { type: 'string', maxLength: 5000 },
+      },
+    },
+  },
+  generateTask: {
+    body: {
+      type: 'object',
+      required: ['templateId', 'context'],
+      properties: {
+        templateId: { type: 'string', minLength: 1 },
+        context: { type: 'string', minLength: 1, maxLength: 10000 },
+        options: { type: 'object' },
+      },
+    },
+  },
+  addTemplate: {
+    body: {
+      type: 'object',
+      required: ['template'],
+      properties: {
+        template: {
+          type: 'object',
+          required: ['id', 'name'],
+          properties: {
+            id: { type: 'string', minLength: 1 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            description: { type: 'string', maxLength: 2000 },
+            category: { type: 'string' },
+            schema: { type: 'object' },
+          },
+        },
+      },
+    },
+  },
+};
+
 interface CreateProjectBody {
   templateId: string;
+  name?: string;
+  description?: string;
 }
 
 interface GenerateTaskBody {
   templateId: string;
   context: string;
+  options?: Record<string, any>;
 }
 
 interface AddTemplateBody {
-  template: any;
+  template: {
+    id: string;
+    name: string;
+    description?: string;
+    category?: string;
+    schema?: Record<string, any>;
+  };
 }
 
 export async function templateRoutes(fastify: FastifyInstance) {

@@ -1,6 +1,18 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CodeQualityService, codeQualityService } from '../../core/quality/CodeQualityService';
 
+// Schema 定义
+const qualitySchemas = {
+  check: {
+    querystring: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['lint', 'types', 'security', 'unused', 'full'], default: 'full' },
+      },
+    },
+  },
+};
+
 interface QualityQuery {
   type?: 'lint' | 'types' | 'security' | 'unused' | 'full';
 }
@@ -9,7 +21,7 @@ export async function qualityRoutes(fastify: FastifyInstance) {
   const service: CodeQualityService = (fastify as any).codeQualityService || codeQualityService;
 
   // GET /api/quality/check - 代码质量检查
-  fastify.get('/quality/check', async (request: FastifyRequest<{ Querystring: QualityQuery }>, reply) => {
+  fastify.get<{ Querystring: QualityQuery }>('/quality/check', { schema: qualitySchemas.check }, async (request: FastifyRequest<{ Querystring: QualityQuery }>, reply) => {
     const { type = 'full' } = request.query;
 
     try {
