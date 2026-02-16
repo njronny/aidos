@@ -13,17 +13,51 @@
 
     var lines = ['flowchart TD'];
     
-    // Add nodes
+    // 状态颜色映射
+    var statusColors = {
+      pending: '#64748b',
+      in_progress: '#3b82f6', 
+      completed: '#10b981',
+      failed: '#ef4444',
+      blocked: '#f59e0b'
+    };
+    
+    // 添加样式定义
+    lines.push('    %% 样式定义');
+    lines.push('    classDef pending fill:#64748b,stroke:#334155,color:#fff');
+    lines.push('    classDef in_progress fill:#3b82f6,stroke:#2563eb,color:#fff');
+    lines.push('    classDef completed fill:#10b981,stroke:#059669,color:#fff');
+    lines.push('    classDef failed fill:#ef4444,stroke:#dc2626,color:#fff');
+    lines.push('    classDef blocked fill:#f59e0b,stroke:#d97706,color:#fff');
+    
+    // Add nodes with status styling
     tasks.forEach(function(task) {
-      var label = (task.title || task.name || 'Untitled').substring(0, 20);
+      var label = (task.title || task.name || 'Untitled').substring(0, 25);
       var status = task.status || 'pending';
-      var nodeId = task.id.substring(0,8);
-      lines.push('    ' + nodeId + '["' + label + ' (' + status + ')"]');
+      var nodeId = 't' + task.id.substring(0,6);
+      lines.push('    ' + nodeId + '["' + label + '"]');
+      lines.push('    class ' + nodeId + ' ' + status);
     });
     
-    // Add simple sequence edges
-    for (var i = 0; i < tasks.length - 1; i++) {
-      lines.push('    ' + tasks[i].id.substring(0,8) + ' --> ' + tasks[i+1].id.substring(0,8));
+    // 尝试从任务依赖关系创建边
+    // 如果有依赖关系数据，使用它；否则按顺序连接
+    var hasDeps = tasks.some(function(t) { return t.dependencies && t.dependencies.length > 0; });
+    
+    if (hasDeps) {
+      tasks.forEach(function(task) {
+        if (task.dependencies && task.dependencies.length > 0) {
+          var targetId = 't' + task.id.substring(0,6);
+          task.dependencies.forEach(function(depId) {
+            var sourceId = 't' + depId.substring(0,6);
+            lines.push('    ' + sourceId + ' --> ' + targetId);
+          });
+        }
+      });
+    } else {
+      // 默认按顺序连接
+      for (var i = 0; i < tasks.length - 1; i++) {
+        lines.push('    t' + tasks[i].id.substring(0,6) + ' --> t' + tasks[i+1].id.substring(0,6));
+      }
     }
     
     return lines.join('\n');

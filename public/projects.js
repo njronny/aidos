@@ -4,6 +4,13 @@
   
   window.loadProjects = function() {
     console.log('Loading projects...');
+    
+    // 显示加载骨架屏
+    var list = document.getElementById('projectsList');
+    if (list) {
+      list.innerHTML = '<div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div><div class="skeleton skeleton-card"></div>';
+    }
+    
     fetch(API_URL + '/api/projects')
       .then(function(res) { return res.json(); })
       .then(function(data) {
