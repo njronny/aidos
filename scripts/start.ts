@@ -18,6 +18,7 @@ import { requirementRoutes } from '../src/api/routes/requirements';
 import { taskRoutes } from '../src/api/routes/tasks';
 import { agentRoutes } from '../src/api/routes/agents';
 import { authMiddleware } from '../src/api/middleware/auth';
+import { rateLimit } from '../src/core/ratelimit';
 
 const fastify = Fastify({
   logger: {
@@ -51,6 +52,15 @@ async function main() {
     // Register CORS
     await fastify.register(cors, {
       origin: true,
+    });
+
+    // Register Rate Limit - 100 requests per minute
+    await fastify.register(rateLimit, {
+      max: 100,
+      timeWindow: '1 minute',
+      redis: undefined, // Use in-memory if Redis not available
+      skipSuccessfulRequests: false,
+      skipFailedRequests: false,
     });
 
     // Register WebSocket
@@ -151,6 +161,32 @@ async function main() {
     process.exit(1);
   }
 }
+
+// 优雅关闭处理
+const gracefulShutdown = async (signal: string) => {
+  console.log(`\n📴 收到 ${signal} 信号，开始优雅关闭...`);
+  
+  try {
+    // 停止接收新请求
+    await fastify.close();
+    console.log('✅ HTTP服务器已关闭');
+    
+    // 关闭数据库连接
+    const { closeDatabase } = await import('../src/infrastructure/database/connection');
+    await closeDatabase();
+    console.log('✅ 数据库连接已关闭');
+    
+    console.log('👋 优雅关闭完成');
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ 关闭时出错:', err);
+    process.exit(1);
+  }
+};
+
+// 监听终止信号
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 console.log('🌟 Starting Aidos API Server...');
 console.log(`📅 Started at: ${new Date().toISOString()}`);

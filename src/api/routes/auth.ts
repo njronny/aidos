@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -11,15 +11,48 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 // Token黑名单（生产环境应使用Redis）
 const tokenBlacklist = new Set<string>();
 
+// Schema 定义
+const loginSchema = {
+  body: {
+    type: 'object',
+    required: ['username', 'password'],
+    properties: {
+      username: { type: 'string', minLength: 1, maxLength: 100 },
+      password: { type: 'string', minLength: 1, maxLength: 100 },
+    },
+  },
+  response: {
+    200: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean' },
+        data: {
+          type: 'object',
+          properties: {
+            token: { type: 'string' },
+            username: { type: 'string' },
+            expiresIn: { type: 'string' },
+          },
+        },
+      },
+    },
+  },
+};
+
+const refreshSchema = {
+  headers: {
+    type: 'object',
+    required: ['authorization'],
+    properties: {
+      authorization: { type: 'string', pattern: '^Bearer .+' },
+    },
+  },
+};
+
 export async function authRoutes(fastify: FastifyInstance) {
   // POST /api/auth/login - 用户登录
-  fastify.post('/auth/login', async (request, reply) => {
-    const body = request.body as any;
-    const { username, password } = body || {};
-    
-    if (!username || !password) {
-      return reply.status(400).send({ success: false, error: '用户名和密码不能为空' });
-    }
+  fastify.post('/auth/login', { schema: loginSchema }, async (request: FastifyRequest<{ Body: { username: string; password: string } }>, reply: FastifyReply) => {
+    const { username, password } = request.body;
     
     // 验证用户名
     if (username !== ADMIN_USERNAME) {
@@ -52,7 +85,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/auth/refresh - 刷新Token
-  fastify.post('/auth/refresh', async (request, reply) => {
+  fastify.post('/auth/refresh', { schema: refreshSchema }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return reply.status(401).send({ success: false, error: '未提供token' });
